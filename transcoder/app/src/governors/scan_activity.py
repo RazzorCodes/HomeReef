@@ -27,7 +27,7 @@ class ScanActivity(Activity):
     def reset(self):
         self._error = False
 
-    def loop(self):
+    def activity(self):
         if self._error:
             return
 

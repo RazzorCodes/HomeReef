@@ -15,7 +15,6 @@ from sqlmodel import SQLModel, select
 
 class State(StrEnum):
     UNKNOWN = "unknown"
-    # --- STARTUP ---
     STARTUP = "startup"
     RETRIEVING = "retrieving"
     CREATE = "creating"
@@ -94,7 +93,6 @@ class DatabaseModule(Module[State]):
             if not db.migrate():
                 self.state = State.ERROR
                 return False
-            # Re-validate after migration to confirm it succeeded
             self.state = State.VALIDATE
             if not db.validate():
                 self.state = State.ERROR
@@ -104,105 +102,90 @@ class DatabaseModule(Module[State]):
         self.state = State.READY
         return True
 
-    def _insert(self, obj: SQLModel) -> bool:
-        session = self._database.session()
-        if not session:
-            return False
+    def _session(self):
+        return self._database.session()
 
+    def _fields_dict(self, record: ListItem, model, exclude_id=True):
+        excludes = {"id"} if exclude_id else set()
+        return {
+            k: v
+            for k, v in asdict(record).items()
+            if k in model.model_fields and k not in excludes
+        }
+
+    def _insert(self, obj: SQLModel) -> bool:
+        if not (session := self._session()):
+            return False
         session.add(obj)
         session.commit()
         session.refresh(obj)
-
         return True
 
     def _upsert(self, obj: SQLModel, unique_field: str) -> bool:
-        session = self._database.session()
-        if not session:
+        if not (session := self._session()):
             return False
-
-        # Get the value to match
-        key_value = getattr(obj, unique_field)
-        # Find existing row
-        stmt = select(type(obj)).where(getattr(type(obj), unique_field) == key_value)
-        existing = session.exec(stmt).first()
-
-        if existing:
-            # Update all fields from obj
-            for f in type(obj).model_fields:  # use model_fields for SQLModel
-                if f == "id":
-                    continue
-                setattr(existing, f, getattr(obj, f))
+        stmt = select(type(obj)).where(
+            getattr(type(obj), unique_field) == getattr(obj, unique_field)
+        )
+        if existing := session.exec(stmt).first():
+            for f in type(obj).model_fields:
+                if f != "id":
+                    setattr(existing, f, getattr(obj, f))
             session.add(existing)
             session.commit()
             session.refresh(existing)
-            # Sync the id back so callers (like insert_record) can read item.id
             obj.id = existing.id
         else:
             session.add(obj)
             session.commit()
             session.refresh(obj)
-
         return True
 
+    def _upsert_metadata(self, session, record: ListItem, item_id: int, upsert=False):
+        metadata = Metadata(**self._fields_dict(record, Metadata), id=item_id)
+        existing = session.exec(select(Metadata).where(Metadata.id == item_id)).first()
+        if existing:
+            if upsert:
+                for f in Metadata.model_fields:
+                    if f != "id":
+                        setattr(existing, f, getattr(metadata, f))
+                session.add(existing)
+        elif not existing:
+            session.add(metadata)
+        session.commit()
+
     def insert_record(self, record: ListItem):
-        session = self._database.session()
-        if not session:
+        if not (session := self._session()):
             return
-
-        # Check if item with this hash already exists
-        stmt = select(Items).where(Items.hash == record.hash)
-        existing_item = session.exec(stmt).first()
-
+        existing_item = session.exec(
+            select(Items).where(Items.hash == record.hash)
+        ).first()
         if existing_item:
             item_id = existing_item.id
         else:
-            item_data = {
-                k: v
-                for k, v in asdict(record).items()
-                if k in Items.model_fields and k not in ("id")
-            }
-            item = Items(**item_data)
+            item = Items(**self._fields_dict(record, Items))
             session.add(item)
             session.commit()
             session.refresh(item)
             item_id = item.id
-
-        # Check if metadata for this item already exists
-        stmt = select(Metadata).where(Metadata.id == item_id)
-        existing_meta = session.exec(stmt).first()
+        existing_meta = session.exec(
+            select(Metadata).where(Metadata.id == item_id)
+        ).first()
         print(existing_meta)
-
         if not existing_meta:
-            metadata_data = {
-                k: v
-                for k, v in asdict(record).items()
-                if k in Metadata.model_fields and k != "id"
-            }
-            metadata = Metadata(**metadata_data, id=item_id)
-            session.add(metadata)
-            session.commit()
+            self._upsert_metadata(session, record, item_id, upsert=False)
 
     def upsert_record(self, record: ListItem):
-        session = self._database.session()
-        if not session:
+        if not (session := self._session()):
             return
-
-        # Upsert Item
-        item_data = {
-            k: v
-            for k, v in asdict(record).items()
-            if k in Items.model_fields and k not in ("id")
-        }
-        item = Items(**item_data)
-
-        stmt = select(Items).where(Items.hash == item.hash)
-        existing_item = session.exec(stmt).first()
-
+        item = Items(**self._fields_dict(record, Items))
+        existing_item = session.exec(
+            select(Items).where(Items.hash == item.hash)
+        ).first()
         if existing_item:
             for f in Items.model_fields:
-                if f == "id":
-                    continue
-                setattr(existing_item, f, getattr(item, f))
+                if f != "id":
+                    setattr(existing_item, f, getattr(item, f))
             session.add(existing_item)
             session.commit()
             session.refresh(existing_item)
@@ -212,63 +195,25 @@ class DatabaseModule(Module[State]):
             session.commit()
             session.refresh(item)
             item_id = item.id
+        self._upsert_metadata(session, record, item_id, upsert=True)
 
-        # Upsert Metadata
-        metadata_data = {
-            k: v
-            for k, v in asdict(record).items()
-            if k in Metadata.model_fields and k != "id"
-        }
-        metadata = Metadata(**metadata_data, id=item_id)
-
-        stmt = select(Metadata).where(Metadata.id == item_id)
-        existing_meta = session.exec(stmt).first()
-
-        if existing_meta:
-            for f in Metadata.model_fields:
-                if f == "id":
-                    continue
-                setattr(existing_meta, f, getattr(metadata, f))
-            session.add(existing_meta)
-        else:
-            session.add(metadata)
-
-        session.commit()
-
-    def get_all(self) -> list[ListItem]:
-        res = []
+    def _query_items(self, where_clause=None) -> list[ListItem]:
         with self._database.session() as session:
             if not session:
                 return []
             stmt = select(Items).options(selectinload(Items.metadata_item))
-            result = session.exec(stmt).all()
-            for item in result:
-                res.append(
-                    ListItem(
-                        **item.model_dump(exclude={"metadata_item"}),
-                        **item.metadata_item.model_dump(exclude={"id"}),
-                    )
+            if where_clause is not None:
+                stmt = stmt.where(where_clause)
+            return [
+                ListItem(
+                    **item.model_dump(exclude={"metadata_item"}),
+                    **item.metadata_item.model_dump(exclude={"id"}),
                 )
+                for item in session.exec(stmt).all()
+            ]
 
-        return res
+    def get_all(self) -> list[ListItem]:
+        return self._query_items()
 
     def get_unknown(self) -> list[ListItem]:
-        res = []
-        with self._database.session() as session:
-            if not session:
-                return []
-            stmt = (
-                select(Items)
-                .where(Items.status == WorkItemStatus.UNKNOWN)
-                .options(selectinload(Items.metadata_item))
-            )
-            result = session.exec(stmt).all()
-            for item in result:
-                res.append(
-                    ListItem(
-                        **item.model_dump(exclude={"metadata_item"}),
-                        **item.metadata_item.model_dump(exclude={"id"}),
-                    )
-                )
-
-        return res
+        return self._query_items(Items.status == WorkItemStatus.UNKNOWN)

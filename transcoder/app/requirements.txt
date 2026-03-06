@@ -4,3 +4,4 @@ sqlmodel
 fastapi
 sqlalchemy
 colorlog
+schedule

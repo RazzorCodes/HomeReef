@@ -9,6 +9,8 @@ from modules.module import Module, Stage, StagedEnum
 @dataclass
 class Activity:
     _modules: list[Module[StagedEnum]] = field(default_factory=list)
+    # _repeats: bool = field(default=False)
+    _interval: float = field(default=3600)  # 1h
 
     def modules_valid(self) -> bool:
         for module in self._modules:
