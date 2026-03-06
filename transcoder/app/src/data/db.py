@@ -15,10 +15,14 @@ class Database:
     _db_path: Path  # = field(init=False)
     _engine: Engine | None = field(default=None)
 
+    def __post_init__(self):
+        if isinstance(self._db_path, str):
+            self._db_path = Path(self._db_path)
+
     @property
     def exists(self) -> bool:
         logger.trace(
-            f"Checking if database exists: {self._db_path} : {self._db_path.exists()}"
+            f"Checking if database exists: {self._db_path} : {self._db_path.exists(follow_symlinks=True)}"
         )
         return self._db_path and self._db_path.exists()
 

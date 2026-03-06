@@ -13,3 +13,9 @@ class Configuration:
     media_path: Path = field(
         default_factory=lambda: Path(DEFAULT_MEDIA_PATH).expanduser()
     )
+
+    def __post_init__(self):
+        if isinstance(self.database_path, str):
+            self.database_path = Path(self.database_path)
+        if isinstance(self.media_path, str):
+            self.media_path = Path(self.media_path)

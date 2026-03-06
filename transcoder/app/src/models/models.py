@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Tuple
 
+from models.orm import WorkItemStatus
+
 
 @dataclass
 class ListItem:
@@ -8,7 +10,7 @@ class ListItem:
     hash: str = field(default="")
     name: str = field(default="")
     path: str = field(default="")
-    status: str = field(default="unknown")
+    status: WorkItemStatus = field(default=WorkItemStatus.UNKNOWN)
     size: int = field(default=0)
     resolution: Tuple[int, int] = field(default=(0, 0))
     duration: float = field(default=0.0)
