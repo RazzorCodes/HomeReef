@@ -6,3 +6,4 @@ sqlalchemy
 colorlog
 schedule
 uvicorn
+pydantic_settings

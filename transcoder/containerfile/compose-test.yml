@@ -11,7 +11,8 @@ services:
       - "8000:8000"
     volumes:
       - ../app:/app:Z
-      - /home/andrei/Videos:/home/andrei/Videos:Z
+      - /home/andrei/Videos:/media:Z
+      - ../app:/storage/spacesaver-transcode:Z
     environment:
       - PYTHONPATH=/app/src
-    command: uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
+    command: python src/app.py

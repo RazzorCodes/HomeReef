@@ -1,18 +1,17 @@
 import uvicorn
+from config import config
 from fastapi import FastAPI
 from governors.governor import Governor
 from models.configuration import Configuration
 
 gov = Governor(
-    Configuration(database_path="./main.db", media_path="/home/andrei/Videos")
+    Configuration(database_path=config.db_path, media_path=config.media_path)
 )
 
 
 async def lifespan(app: FastAPI):
-    # This fires exactly ONCE when the Uvicorn server starts
     gov.setup()
     yield
-    # This fires exactly ONCE when you hit Ctrl+C to stop the server
     gov.shutdown()
 
 
@@ -46,6 +45,5 @@ def stop_task(task_id: str):
     gov.stop_task(task_id)
 
 
-# --- THE MAGIC TRIGGER ---
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host=config.app_host, port=config.app_port, reload=True)
