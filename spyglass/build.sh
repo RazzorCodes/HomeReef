@@ -61,25 +61,36 @@ echo " Version:  $NEW_VERSION"
 echo " Registry: $REGISTRY"
 echo "==================================="
 
-podman build \
+MANIFEST_VERSIONED="spyglass-manifest:${NEW_VERSION}"
+
+# Remove any stale local manifest before building
+podman manifest rm "${MANIFEST_VERSIONED}" 2>/dev/null || true
+
+podman buildx build \
     --build-arg CACHE_BUST="$(date +%s)" \
-    -t "spyglass:${NEW_VERSION}" \
-    -t "spyglass:latest" \
+    --platform linux/amd64,linux/arm64 \
+    --manifest "${MANIFEST_VERSIONED}" \
     -f containerfiles/Containerfile \
     .
 
-echo "Done: spyglass:${NEW_VERSION} (also tagged :latest)"
+echo "Done: manifest ${MANIFEST_VERSIONED} (amd64 + arm64)"
 
 # ── Upload ────────────────────────────────────────────────────────────────────
-IMAGE="spyglass"
+echo "==> Pushing versioned manifest list..."
+podman manifest push \
+    --tls-verify=false \
+    --all \
+    "${MANIFEST_VERSIONED}" \
+    "docker://${REGISTRY}/spyglass:${NEW_VERSION}"
 
-echo "==> Uploading versioned image..."
-./upload-container.sh --source "localhost/${IMAGE}:${NEW_VERSION}" --dest "${REGISTRY}/${IMAGE}:${NEW_VERSION}"
-
-echo "==> Uploading latest image..."
-./upload-container.sh --source "localhost/${IMAGE}:latest" --dest "${REGISTRY}/${IMAGE}:latest"
+echo "==> Pushing latest manifest list..."
+podman manifest push \
+    --tls-verify=false \
+    --all \
+    "${MANIFEST_VERSIONED}" \
+    "docker://${REGISTRY}/spyglass:latest"
 
 echo "==================================="
 echo " Build & Upload Complete"
-echo " Version: $NEW_VERSION"
+echo " Version: $NEW_VERSION / latest"
 echo "==================================="

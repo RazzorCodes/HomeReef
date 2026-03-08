@@ -39,6 +39,6 @@ echo "    Source: $SOURCE"
 echo "    Dest:   $DEST"
 
 # Copy from local podman (containers-storage) to remote registry
-skopeo copy --dest-tls-verify=false "containers-storage:${SOURCE}" "docker://${DEST}"
+skopeo copy --all --dest-tls-verify=false "containers-storage:${SOURCE}" "docker://${DEST}"
 
 echo "==> Upload complete!"
