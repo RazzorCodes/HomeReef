@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
-VERSION_FILE="app/version.txt"
-REGISTRY="zot.lan:5000"
+VERSION_FILE="src/version.txt"
+REGISTRY="192.168.0.127:5000"
 NEW_VERSION=""
 
 # ── Parse Arguments ───────────────────────────────────────────────────────────
@@ -27,6 +27,9 @@ done
 # ── Determine version ─────────────────────────────────────────────────────────
 if [ -z "$NEW_VERSION" ]; then
     # Read current version and auto-increment
+    if [ ! -f "$VERSION_FILE" ]; then
+        echo "v0.0.0" > "$VERSION_FILE"
+    fi
     CURRENT=$(cat "$VERSION_FILE" | tr -d '[:space:]')
 
     # Parse vMAJOR.MINOR.PATCH[-SUFFIX]
@@ -53,22 +56,22 @@ fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 echo "==================================="
-echo " Building - Spacesaver (Transcode)"
+echo " Building - Spacesaver (Spyglass)"
 echo " Version:  $NEW_VERSION"
 echo " Registry: $REGISTRY"
 echo "==================================="
 
 podman build \
     --build-arg CACHE_BUST="$(date +%s)" \
-    -t "spacesaver-transcode:${NEW_VERSION}" \
-    -t "spacesaver-transcode:latest" \
-    -f containerfile/spacesaver-transcode \
-    app
+    -t "spyglass:${NEW_VERSION}" \
+    -t "spyglass:latest" \
+    -f containerfiles/Containerfile \
+    .
 
-echo "Done: spacesaver-transcode:${NEW_VERSION} (also tagged :latest)"
+echo "Done: spyglass:${NEW_VERSION} (also tagged :latest)"
 
 # ── Upload ────────────────────────────────────────────────────────────────────
-IMAGE="spacesaver-transcode"
+IMAGE="spyglass"
 
 echo "==> Uploading versioned image..."
 ./upload-container.sh --source "localhost/${IMAGE}:${NEW_VERSION}" --dest "${REGISTRY}/${IMAGE}:${NEW_VERSION}"
