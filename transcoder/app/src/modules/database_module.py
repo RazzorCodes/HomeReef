@@ -1,11 +1,10 @@
-from dataclasses import field
 from enum import StrEnum
 from pathlib import Path
 from typing import override
 
 from data.db import Database
 from misc.logger import logger
-from models.configuration import Configuration
+from models.config import AppConfig
 from modules.module import Module, Stage
 
 
@@ -37,15 +36,15 @@ class State(StrEnum):
 
 
 class DatabaseModule(Module[State]):
-    _database: Database = field(init=False)
+    _database: Database
 
     def __init__(self):
         super().__init__(State.UNKNOWN)
 
     @override
-    def setup(self, config: Configuration) -> bool:
+    def setup(self, config: AppConfig) -> bool:
         logger.info("Setting up database module")
-        return self._setup(db_path=config.database_path or None)
+        return self._setup(db_path=config.db_path or None)
 
     def _setup(
         self, db_path: Path | None = None, db_obj: Database | None = None

@@ -77,8 +77,8 @@ class ScanActivity(Activity):
                     logger.debug(f"Upserted DB record for: {file_path.name}")
                 else:
                     logger.error(f"Failed to upsert DB record for: {file_path.name}")
-            except Exception as Ex:
-                logger.error(f"Prober failed on file {path_str}: {Ex}")
+            except Exception as e:
+                logger.error(f"Prober failed on file {path_str}: {e}")
                 record.status = WorkItemStatus.ERROR
                 create_list_item(database, record)
 
@@ -102,3 +102,6 @@ class ScanActivity(Activity):
         """Triggers the abort flag, which tells the directory walker to stop."""
         logger.info("Cancel requested. Stopping scan...")
         self._abort_flag.set()
+
+    def result(self):
+        return None

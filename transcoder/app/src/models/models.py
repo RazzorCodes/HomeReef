@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Tuple
 
 from models.orm import WorkItemStatus
 
@@ -12,7 +11,7 @@ class ListItem:
     path: str = field(default="")
     status: WorkItemStatus = field(default=WorkItemStatus.UNKNOWN)
     size: int = field(default=0)
-    resolution: Tuple[int, int] = field(default=(0, 0))
+    resolution: tuple[int, int] = field(default=(0, 0))
     duration: float = field(default=0.0)
     codec: str = field(default="")
     sar: str = field(default="")

@@ -20,6 +20,11 @@ class TranscodeActivity(Activity):
     _record: ListItem | None = None
     _abort_flag: threading.Event = field(default_factory=threading.Event)
 
+    # Live progress — read by StatusActivity via /status
+    progress_percent: float = 0.0
+    progress_current_frame: int = 0
+    progress_total_frames: int = 0
+
     @property
     @override
     def type(self) -> str:
@@ -68,11 +73,9 @@ class TranscodeActivity(Activity):
             return
 
         def live_updater(percent: float, current_frame: int, total_frames: int):
-            print(
-                f"Progress: {percent:.1f}% ({current_frame}/{total_frames} frames)",
-                end="\r",
-                flush=True,
-            )
+            self.progress_percent = percent
+            self.progress_current_frame = current_frame
+            self.progress_total_frames = total_frames
 
         temp_output = self._target.with_suffix(".tmp.mkv")
         logger.info(f"Starting transcode of {self._target.name}")
@@ -90,7 +93,7 @@ class TranscodeActivity(Activity):
 
             # Check if we were cancelled during the run
             if self._abort_flag.is_set():
-                logger.warning(f"\nTranscode cancelled for {self._target.name}")
+                logger.warning(f"Transcode cancelled for {self._target.name}")
                 if temp_output.exists():
                     temp_output.unlink()
                 return  # Status was already set to ABORTED in cancel()
@@ -102,7 +105,7 @@ class TranscodeActivity(Activity):
                 if self._target != final_output:
                     self._target.unlink(missing_ok=True)
 
-            logger.info(f"\nTranscode complete! Saved as {final_output.name}")
+            logger.info(f"Transcode complete! Saved as {final_output.name}")
 
             # Update database record
             self._record.path = str(final_output)
@@ -110,7 +113,7 @@ class TranscodeActivity(Activity):
             self._set_status(WorkItemStatus.DONE)
 
         except Exception as e:
-            logger.error(f"\nTranscode failed for {self._target.name}: {e}")
+            logger.error(f"Transcode failed for {self._target.name}: {e}")
             if temp_output.exists():
                 temp_output.unlink()
             # Status will only be ERROR if it genuinely crashed
@@ -120,3 +123,6 @@ class TranscodeActivity(Activity):
         logger.info("Cancel requested. Stopping transcode...")
         self._abort_flag.set()
         self._set_status(WorkItemStatus.ABORTED)
+
+    def result(self):
+        return None

@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from misc.logger import logger
-from models.configuration import Configuration
+from models.config import AppConfig
 
 
 class Stage(StrEnum):
@@ -13,7 +13,7 @@ class Stage(StrEnum):
     SETUP = "setup"
     # --- work loop ---
     READY = "ready"
-    PROCESSING = ""
+    PROCESSING = "processing"
     BLOCKED = "recoverable"
     # --- unrecoverable ---
     ERROR = "unrecoverable"
@@ -45,19 +45,12 @@ class Module(ABC, Generic[T]):
         self._state = value
 
     @abstractmethod
-    def setup(self, config: Configuration) -> bool:
+    def setup(self, config: AppConfig) -> bool:
         pass
 
     @abstractmethod
     def shutdown(self, force: bool) -> bool:
         pass
-
-    @staticmethod
-    def setup_cb(result: bool, module: "Module") -> None:
-        if result:
-            logger.info(f"Success setting up {module.__class__.__name__}")
-        else:
-            logger.warning(f"Failure setting up {module.__class__.__name__}")
 
     @property
     def stage(self) -> Stage:

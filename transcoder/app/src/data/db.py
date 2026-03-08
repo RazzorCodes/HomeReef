@@ -91,4 +91,5 @@ class Database:
         return False  # or migrations for now
 
     def close(self, force: bool):
-        self._engine.dispose()
+        if self._engine:
+            self._engine.dispose()

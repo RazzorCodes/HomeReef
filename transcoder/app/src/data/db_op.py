@@ -13,7 +13,7 @@ def _get_fields_dict(
     record: ListItem, model: type, exclude_id: bool = True
 ) -> dict[str, Any]:
     """Helper: Extracts fields from a ListItem that correspond to a specific SQLModel."""
-    excludes = {"id"} if exclude_id else set[str]()
+    excludes = {"id"} if exclude_id else set()
     return {
         k: v
         for k, v in asdict(record).items()

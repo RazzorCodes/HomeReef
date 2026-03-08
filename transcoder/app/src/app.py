@@ -1,49 +1,67 @@
+import argparse
+import time
+from contextlib import asynccontextmanager
+
 import uvicorn
-from config import config
-from fastapi import FastAPI
+
 from governors.governor import Governor
-from models.configuration import Configuration
+from models.config import AppConfig
 
-gov = Governor(
-    Configuration(database_path=config.db_path, media_path=config.media_path)
-)
+def asgi_factory():
+    """Factory function for Uvicorn to initialize the app and Governor context."""
+    config = AppConfig()
+    gov = Governor(config)
+    
+    @asynccontextmanager
+    async def lifespan(app):
+        # Startup
+        gov.setup()
+        gov.start_endpoint()
+        yield
+        # Shutdown
+        gov.shutdown()
 
-
-async def lifespan(app: FastAPI):
-    gov.setup()
-    yield
-    gov.shutdown()
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.put("/process/{file_hash}")
-def trigger_transcode_file(file_hash: str):
-    task_id = gov.start_transcode(file_hash)
-    return {"message": "Transcode started", "task_id": task_id}
-
-
-@app.get("/list")
-def list_database():
-    return gov.list_database()
-
-
-@app.get("/status")
-def get_current_transcode_status():
-    """Returns a list of whatever the Governor is currently working on."""
-    return {"active_tasks": [task_id for task_id in gov.get_status().keys()]}
-
-
-@app.put("/rescan")
-def rescan_library():
-    return {"takid": gov.start_scan()}
-
-
-@app.delete("/task/{task_id}")
-def stop_task(task_id: str):
-    gov.stop_task(task_id)
+    app = gov.api_app
+    app.router.lifespan_context = lifespan
+    return app
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host=config.app_host, port=config.app_port, reload=True)
+    parser = argparse.ArgumentParser(description="SpaceSaver Transcoder")
+    parser.add_argument(
+        "mode", 
+        nargs="?", 
+        choices=["serve", "headless"], 
+        default="headless", 
+        help="Run mode (default: headless)"
+    )
+    parser.add_argument(
+        "--reload", 
+        action="store_true", 
+        help="Enable uvicorn auto-reload (only applies to 'serve' mode)"
+    )
+    args = parser.parse_args()
+
+    if args.mode == "serve":
+        # 1. Run the FastAPI application through Uvicorn
+        # It handles port, host, threading, and reload capabilities cleanly
+        config = AppConfig()
+        uvicorn.run(
+            "app:asgi_factory", 
+            factory=True, 
+            host=config.app_host, 
+            port=config.app_port, 
+            reload=args.reload
+        )
+    else:
+        # 2. Run Headless
+        config = AppConfig()
+        gov = Governor(config)
+
+        gov.setup()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nCtrl+C received! Shutting down...")
+            gov.shutdown()

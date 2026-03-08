@@ -15,4 +15,4 @@ services:
       - ../app:/storage/spacesaver-transcode:Z
     environment:
       - PYTHONPATH=/app/src
-    command: python src/app.py
+    command: python src/app.py serve --reload

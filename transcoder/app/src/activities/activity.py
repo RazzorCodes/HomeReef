@@ -11,15 +11,10 @@ class Activity(ABC):
     def type(self) -> str:
         pass
 
-    # @type.setter
-    # @abstractmethod
-    # def type(self, value: str) -> None:
-    #    pass
-
     @property
     @abstractmethod
     def valid(self) -> bool:
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def setup(self, *args, **kwargs) -> bool:
@@ -27,8 +22,12 @@ class Activity(ABC):
 
     @abstractmethod
     def run(self) -> None:
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def cancel(self) -> None:
-        raise NotImplementedError
+        pass
+
+    @abstractmethod
+    def result(self):
+        pass

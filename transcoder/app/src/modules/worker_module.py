@@ -1,3 +1,4 @@
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
@@ -5,7 +6,7 @@ from typing import override
 
 from activities.activity import Activity
 from misc.logger import logger
-from models.configuration import Configuration
+from models.config import AppConfig
 from modules.module import Module, Stage
 
 
@@ -21,10 +22,6 @@ class State(StrEnum):
                 return Stage.UNKNOWN
             case State.STARTUP:
                 return Stage.STARTUP
-            # case State.RETRIEVING | State.CREATE | State.CONNECT | State.VALIDATE:
-            #    return Stage.SETUP
-            # case State.MIGRATE:
-            #    return Stage.PROCESSING
             case State.READY:
                 return Stage.READY
             case _:
@@ -37,10 +34,11 @@ class WorkerModule(Module[State]):
 
         self._query_executor = ThreadPoolExecutor(max_workers=1)
         self._work_executor = ThreadPoolExecutor(max_workers=1)
+        self._tasks_lock = threading.Lock()
         self.active_tasks: dict[str, Activity] = {}
 
     @override
-    def setup(self, config: Configuration) -> bool:
+    def setup(self, config: AppConfig) -> bool:
         logger.info("Setting up worker module")
         return self._setup()
 
@@ -48,23 +46,25 @@ class WorkerModule(Module[State]):
         task_id = f"{activity.type}_{uuid.uuid4().hex[:8]}"
         if activity.type == "tran":
             self._work_executor.submit(self._run_activity, task_id, activity)
-
-        if activity.type == "scan":
+        else:
+            # scan, list, status — all go on the query executor
             self._query_executor.submit(self._run_activity, task_id, activity)
 
-        self.active_tasks[task_id] = activity
+        with self._tasks_lock:
+            self.active_tasks[task_id] = activity
         return task_id
 
-    def cancel(self, uuid: str) -> bool:
-        if uuid not in self.active_tasks.keys():
+    def cancel(self, task_uuid: str) -> bool:
+        with self._tasks_lock:
+            activity = self.active_tasks.pop(task_uuid, None)
+        if activity is None:
             return False
-        self.active_tasks[uuid].cancel()
-        self.active_tasks.pop(uuid)
+        activity.cancel()
         return True
 
-    def status(self):
-        print(self.active_tasks)
-        return self.active_tasks
+    def status(self) -> dict[str, Activity]:
+        with self._tasks_lock:
+            return dict(self.active_tasks)
 
     def _run_activity(self, task_id: str, activity: Activity) -> None:
         """Wrapper to execute the activity and clean up memory when it finishes."""
@@ -74,7 +74,8 @@ class WorkerModule(Module[State]):
             logger.error(f"Task {task_id} crashed: {e}")
         finally:
             # Remove the task from tracking once it finishes or crashes
-            self.active_tasks.pop(task_id, None)
+            with self._tasks_lock:
+                self.active_tasks.pop(task_id, None)
 
     def _setup(self) -> bool:
 
@@ -84,7 +85,9 @@ class WorkerModule(Module[State]):
 
     @override
     def shutdown(self, force: bool) -> bool:
-        for task in self.active_tasks.values():
+        with self._tasks_lock:
+            tasks = list(self.active_tasks.values())
+        for task in tasks:
             task.cancel()
         self._work_executor.shutdown(wait=False)
         self._query_executor.shutdown(wait=False)

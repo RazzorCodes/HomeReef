@@ -27,9 +27,8 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 FROM setup AS app
-# Run the Flask application (threaded mode — Flask handles the two background
-# threads and API requests concurrently within the same process)
+# Run the FastAPI application through the CLI orchestrator
 ENV PYTHONPATH=/app/src
 # Expose the HTTP API port
 EXPOSE 8000
-CMD ["python", "src/app.py"]
+CMD ["python", "src/app.py", "serve"]
