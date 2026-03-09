@@ -625,17 +625,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 tr.innerHTML = `
                     <td class="col-check">${checkboxHtml}</td>
-<<<<<<< HEAD
                     <td class="col-file" title="${item.path || ''}">
                         <div class="file-name-text">${displayName}</div>
                     </td>
                     <td class="col-status"><span class="status-badge ${statusUpper}">${statusUpper}</span></td>
                     <td class="col-info">${infoStr}</td>
-=======
-                    <td class="col-file"></td>
-                    <td class="col-status"><span class="status-badge ${statusClass}">${statusUpper}</span></td>
-                    <td class="col-info"></td>
->>>>>>> c04d047 ([pr] implemented coderabbit suggestions)
                 `;
 
                 tr.querySelector('.col-file').textContent = displayName;
