@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+ARG CACHE_BUST
 
 # Install dependencies
 COPY requirements.txt .

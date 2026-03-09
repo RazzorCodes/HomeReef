@@ -34,6 +34,7 @@ class WorkerModule(Module[State]):
 
         self._query_executor = ThreadPoolExecutor(max_workers=1)
         self._work_executor = ThreadPoolExecutor(max_workers=1)
+        self._scan_executor = ThreadPoolExecutor(max_workers=1)
         self._tasks_lock = threading.Lock()
         self.active_tasks: dict[str, Activity] = {}
 
@@ -50,8 +51,10 @@ class WorkerModule(Module[State]):
             
         if activity.type == "tran":
             self._work_executor.submit(self._run_activity, task_id, activity)
+        elif activity.type == "scan":
+            self._scan_executor.submit(self._run_activity, task_id, activity)
         else:
-            # scan, list, status — all go on the query executor
+            # list, status — all go on the query executor
             self._query_executor.submit(self._run_activity, task_id, activity)
 
         return task_id
@@ -93,5 +96,6 @@ class WorkerModule(Module[State]):
             task.cancel()
         self._work_executor.shutdown(wait=False)
         self._query_executor.shutdown(wait=False)
+        self._scan_executor.shutdown(wait=False)
 
         return True
