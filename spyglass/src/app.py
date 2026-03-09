@@ -27,6 +27,14 @@ def get_version():
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/spyglass-version", methods=["GET"])
+def get_spyglass_version():
+    try:
+        with open("version.txt", "r") as f:
+            return jsonify({"version": f.read().strip()}), 200
+    except Exception as e:
+        return jsonify({"version": "unknown"}), 200
+
 @app.route("/api/status", methods=["GET"])
 def get_status():
     try:

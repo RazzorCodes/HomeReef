@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let queueTasks = [];
     let queueRefreshInterval = null;
     let libraryRefreshInterval = null;
+    let selectedHashes = new Set();
+    let activeFilters = [];
 
     // Elements
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -16,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkAll = document.getElementById('check-all');
     const toggleAutoRefresh = document.getElementById('toggle-auto-refresh');
     const toggleAutoRefreshLib = document.getElementById('toggle-auto-refresh-lib');
-    const queueSpinner = document.getElementById('queue-spinner');
     const appVersionSpan = document.getElementById('app-version');
     const qualityPresetSelect = document.getElementById('quality-preset');
     const qualityModal = document.getElementById('quality-modal');
@@ -24,16 +25,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const customQualityForm = document.getElementById('custom-quality-form');
     const modalCloseEls = document.querySelectorAll('.modal-close, .modal-close-btn');
 
+    const filterType = document.getElementById('filter-type');
+    const filterValueName = document.getElementById('filter-value-name');
+    const filterValueStatus = document.getElementById('filter-value-status');
+    const filterValueInfo = document.getElementById('filter-value-info');
+    const btnAddFilter = document.getElementById('btn-add-filter');
+    const activeFiltersContainer = document.getElementById('active-filters');
+
     // Toast Container
     const toastContainer = document.getElementById('toast-container');
 
     // Init
     initTabs();
     setupEventListeners();
+    setupFilters();
     fetchVersion();
     fetchLibrary();
     fetchQueue();
     fetchQuality();
+
+    if (toggleAutoRefresh && toggleAutoRefresh.checked) {
+        const icon = btnRefreshQueue.querySelector('i');
+        if (icon) icon.classList.add('bx-spin-reverse');
+    }
+    if (toggleAutoRefreshLib && toggleAutoRefreshLib.checked) {
+        const icon = btnRefreshLib.querySelector('i');
+        if (icon) icon.classList.add('bx-spin-reverse');
+    }
+
     startQueuePolling();
     startLibraryPolling();
 
@@ -73,20 +92,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         toggleAutoRefresh.addEventListener('change', (e) => {
+            const label = e.target.closest('.toggle-label');
+            const icon = btnRefreshQueue.querySelector('i');
             if (e.target.checked) {
                 startQueuePolling();
-                queueSpinner.style.display = 'inline-block';
+                icon.classList.add('bx-spin-reverse');
+                if (label) label.classList.remove('text-muted');
             } else {
                 if (queueRefreshInterval) clearInterval(queueRefreshInterval);
-                queueSpinner.style.display = 'none';
+                icon.classList.remove('bx-spin-reverse');
+                if (label) label.classList.add('text-muted');
             }
         });
 
         toggleAutoRefreshLib.addEventListener('change', (e) => {
+            const label = e.target.closest('.toggle-label');
+            const icon = btnRefreshLib.querySelector('i');
             if (e.target.checked) {
                 startLibraryPolling();
+                icon.classList.add('bx-spin-reverse');
+                if (label) label.classList.remove('text-muted');
             } else {
                 if (libraryRefreshInterval) clearInterval(libraryRefreshInterval);
+                icon.classList.remove('bx-spin-reverse');
+                if (label) label.classList.add('text-muted');
             }
         });
 
@@ -126,8 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(`Successfully queued ${successCount} items`, 'success');
                 fetchLibrary(); // refresh status
                 fetchQueue();   // refresh queue
-                // switch to queue tab
-                document.querySelector('[data-tab="queue"]').click();
             }
 
             checkAll.checked = false;
@@ -163,8 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = checkbox.closest('tr');
         if (checkbox.checked) {
             tr.classList.add('selected');
+            selectedHashes.add(checkbox.value);
         } else {
             tr.classList.remove('selected');
+            selectedHashes.delete(checkbox.value);
         }
     }
 
@@ -187,10 +216,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/version');
             if (res.ok) {
                 const data = await res.json();
-                appVersionSpan.textContent = `v${data.version}`;
+                if (appVersionSpan) appVersionSpan.textContent = `v${data.version}`;
             }
         } catch (e) {
-            console.error('Failed to fetch version', e);
+            console.error('Failed to fetch transcode version', e);
+        }
+
+        try {
+            const res = await fetch('/api/spyglass-version');
+            if (res.ok) {
+                const data = await res.json();
+                const spg = document.getElementById('spyglass-version');
+                if (spg) spg.textContent = `${data.version}`;
+            }
+        } catch (e) {
+            console.error('Failed to fetch spyglass version', e);
         }
     }
 
@@ -254,7 +294,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchLibrary() {
         try {
-            btnRefreshLib.querySelector('i').classList.add('bx-spin');
+            // Keep manually applied spin active. Only add it temporarily if auto-refresh is off.
+            if (!toggleAutoRefreshLib.checked) {
+                btnRefreshLib.querySelector('i').classList.add('bx-spin-reverse');
+            }
             const res = await fetch('/api/list');
             if (res.ok) {
                 libraryItems = await res.json();
@@ -265,12 +308,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             showToast('Network error loading library', 'error');
         } finally {
-            btnRefreshLib.querySelector('i').classList.remove('bx-spin');
+            if (!toggleAutoRefreshLib.checked) {
+                btnRefreshLib.querySelector('i').classList.remove('bx-spin-reverse');
+            }
         }
     }
 
     async function fetchQueue() {
         try {
+            if (!toggleAutoRefresh.checked) {
+                btnRefreshQueue.querySelector('i').classList.add('bx-spin-reverse');
+            }
             const res = await fetch('/api/status');
             if (res.ok) {
                 const data = await res.json();
@@ -281,12 +329,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             console.error('Failed to fetch queue status', e);
+        } finally {
+            if (!toggleAutoRefresh.checked) {
+                btnRefreshQueue.querySelector('i').classList.remove('bx-spin-reverse');
+            }
         }
     }
 
     async function triggerScan() {
         try {
-            btnRefreshLib.querySelector('i').classList.add('bx-spin');
+            btnRefreshLib.querySelector('i').classList.add('bx-spin-reverse');
             showToast('Initiating scan...', 'info');
             const res = await fetch('/api/scan', { method: 'PUT' });
             if (res.ok) {
@@ -302,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             showToast('Network error triggering scan', 'error');
         } finally {
-            btnRefreshLib.querySelector('i').classList.remove('bx-spin');
+            btnRefreshLib.querySelector('i').classList.remove('bx-spin-reverse');
         }
     }
 
@@ -320,6 +372,97 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Filters ---
+    function setupFilters() {
+        if (!btnAddFilter) return;
+
+        filterType.addEventListener('change', () => {
+            filterValueName.classList.add('hidden');
+            filterValueStatus.classList.add('hidden');
+            filterValueInfo.classList.add('hidden');
+
+            const t = filterType.value;
+            if (t === 'name') filterValueName.classList.remove('hidden');
+            if (t === 'status') filterValueStatus.classList.remove('hidden');
+            if (t === 'info') filterValueInfo.classList.remove('hidden');
+        });
+
+        btnAddFilter.addEventListener('click', () => {
+            const type = filterType.value;
+            let value = '';
+            let labelStr = '';
+
+            if (type === 'name') {
+                value = filterValueName.value.trim();
+                if (!value) return;
+                labelStr = `Name: ${value}`;
+                filterValueName.value = '';
+                value = value.toLowerCase(); // keep logical matching lowercase
+            } else if (type === 'status') {
+                value = filterValueStatus.value;
+                const text = filterValueStatus.options[filterValueStatus.selectedIndex].text;
+                labelStr = `Status: ${text}`;
+            } else if (type === 'info') {
+                value = filterValueInfo.value;
+                const text = filterValueInfo.options[filterValueInfo.selectedIndex].text;
+                labelStr = `Info: ${text}`;
+            }
+
+            if (value) {
+                addFilter(type, value, labelStr);
+            }
+        });
+    }
+
+    function addFilter(type, value, labelStr) {
+        const exists = activeFilters.find(f => f.type === type && f.value === value);
+        if (exists) return;
+
+        activeFilters.push({ type, value, labelStr, id: Date.now() + Math.random() });
+        renderFilters();
+        renderLibrary();
+    }
+
+    function removeFilter(id) {
+        activeFilters = activeFilters.filter(f => f.id !== id);
+        renderFilters();
+        renderLibrary();
+    }
+
+    function renderFilters() {
+        activeFiltersContainer.innerHTML = '';
+        activeFilters.forEach(f => {
+            const el = document.createElement('div');
+            el.className = 'filter-tag';
+            el.innerHTML = `
+                <span class="filter-label">${f.labelStr}</span>
+                <button class="filter-remove" data-id="${f.id}"><i class='bx bx-x'></i></button>
+            `;
+            el.querySelector('.filter-remove').addEventListener('click', () => removeFilter(f.id));
+            activeFiltersContainer.appendChild(el);
+        });
+    }
+
+    // --- Helpers ---
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function getQualityLabel(resolution) {
+        if (!resolution || !Array.isArray(resolution) || resolution.length < 2) return '';
+        const h = resolution[1];
+        if (h >= 2160) return '4K';
+        if (h >= 1440) return '1440p';
+        if (h >= 1080) return '1080p';
+        if (h >= 720) return '720p';
+        if (h >= 480) return '480p';
+        return `${h}p`;
+    }
+
     // --- Rendering ---
     function renderLibrary() {
         const table = document.getElementById('library-table');
@@ -328,34 +471,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbody.innerHTML = '';
 
-        if (!libraryItems || libraryItems.length === 0) {
+        let filteredItems = libraryItems;
+
+        if (activeFilters.length > 0) {
+            filteredItems = libraryItems.filter(item => {
+                const name = (item.name || '').toLowerCase();
+                const path = (item.path || '').toLowerCase();
+                const status = (item.status || '').toLowerCase();
+                const codec = (item.codec || '').toLowerCase();
+                const quality = getQualityLabel(item.resolution).toLowerCase();
+
+                return activeFilters.every(f => {
+                    if (f.type === 'name') {
+                        return name.includes(f.value) || path.includes(f.value);
+                    } else if (f.type === 'status') {
+                        return status === f.value.toLowerCase();
+                    } else if (f.type === 'info') {
+                        const val = f.value.toLowerCase();
+                        return codec.includes(val) || quality.includes(val);
+                    }
+                    return true;
+                });
+            });
+        }
+
+        if (!filteredItems || filteredItems.length === 0) {
             table.classList.add('hidden');
             emptyState.classList.remove('hidden');
         } else {
             table.classList.remove('hidden');
             emptyState.classList.add('hidden');
 
-            libraryItems.forEach(item => {
+            filteredItems.forEach(item => {
                 const tr = document.createElement('tr');
 
-                // Only allow selection if status is PENDING or ERROR
                 const status = (item.status || '').toLowerCase();
                 const canTranscode = status === 'pending' || status === 'error';
 
                 let checkboxHtml = '';
                 if (canTranscode && item.hash) {
-                    checkboxHtml = `<input type="checkbox" class="row-checkbox" value="${item.hash}">`;
+                    const isChecked = selectedHashes.has(item.hash) ? 'checked' : '';
+                    checkboxHtml = `<input type="checkbox" class="row-checkbox" value="${item.hash}" ${isChecked}>`;
                 }
 
-                const sizeMb = item.size ? (item.size / (1024 * 1024)).toFixed(1) + ' MB' : '-';
+                const sizeStr = formatBytes(item.size);
+                const qualityStr = getQualityLabel(item.resolution) || 'Unknown';
+                const codecStr = item.codec || '???';
+                let resStr = '-';
+                if (item.resolution && Array.isArray(item.resolution) && item.resolution.length === 2) {
+                    resStr = `${item.resolution[0]}x${item.resolution[1]}`;
+                }
+                const arStr = item.dar || item.sar || '-';
+                const infoStr = `${sizeStr} | ${qualityStr} | ${codecStr} | ${resStr} | AR: ${arStr}`;
+
                 const statusUpper = status.toUpperCase();
                 const displayName = item.name || (item.path ? item.path.split('/').pop() : 'Unknown');
 
                 tr.innerHTML = `
                     <td class="col-check">${checkboxHtml}</td>
-                    <td class="col-file" title="${item.path || ''}">${displayName}</td>
+                    <td class="col-file" title="${item.path || ''}">
+                        <div class="file-name-text">${displayName}</div>
+                    </td>
                     <td class="col-status"><span class="status-badge ${statusUpper}">${statusUpper}</span></td>
-                    <td class="col-info">${sizeMb} | ${item.codec || '???'}</td>
+                    <td class="col-info">${infoStr}</td>
                 `;
 
                 if (canTranscode) {
@@ -367,6 +545,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateRowSelection(cb);
                         updateTranscodeButton();
                     });
+
+                    if (cb.checked) {
+                        tr.classList.add('selected');
+                    }
                 }
 
                 tbody.appendChild(tr);
@@ -434,7 +616,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const btnCancel = el.querySelector('.btn-cancel');
                 btnCancel.addEventListener('click', () => {
-                    if (confirm('Are you sure you want to cancel this task?')) {
+                    let shouldConfirm = false;
+                    if (task.type === 'tran' && task.progress && parseFloat(task.progress.percent) > 0.5) {
+                        shouldConfirm = true;
+                    }
+                    if (!shouldConfirm || confirm('Are you sure you want to cancel this task? It is actively processing.')) {
                         cancelTask(task.uuid);
                     }
                 });

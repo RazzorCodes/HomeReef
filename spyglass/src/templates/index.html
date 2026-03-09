@@ -15,111 +15,152 @@
 </head>
 
 <body>
-    <div class="app-container">
-        <!-- Tabs / Bookmarks -->
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="library">
-                <i class='bx bx-library'></i> Library
-            </button>
-            <button class="tab-btn" data-tab="queue">
-                <i class='bx bx-list-ol'></i> Queue
-                <span id="queue-badge" class="badge">0</span>
-            </button>
-            <div class="version-tag">SpaceSaver Transcode <span id="app-version">v...</span></div>
-        </nav>
+    <div class="app-wrapper">
+        <div class="app-container">
+            <!-- Tabs / Bookmarks -->
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="library">
+                    <i class='bx bx-library'></i> Library
+                </button>
+                <button class="tab-btn" data-tab="queue">
+                    <i class='bx bx-list-ol'></i> Queue
+                    <span id="queue-badge" class="badge">0</span>
+                </button>
+            </nav>
 
-        <main class="content-area">
-            <!-- Library View -->
-            <section id="library" class="tab-pane active">
-                <div class="toolbar">
-                    <div class="toolbar-actions">
-                        <button id="btn-transcode-selected" class="btn btn-primary" disabled>
-                            <i class='bx bx-play-circle'></i> Transcode Selected
-                        </button>
-                        <div class="quality-selector">
-                            <label for="quality-preset">Quality:</label>
-                            <select id="quality-preset" class="select-input">
-                                <option value="low">Low</option>
-                                <option value="mid">Mid</option>
-                                <option value="high">High</option>
-                                <option value="custom">Custom...</option>
-                            </select>
+            <main class="content-area">
+                <!-- Library View -->
+                <section id="library" class="tab-pane active">
+                    <div class="toolbar">
+                        <div class="toolbar-actions">
+                            <button id="btn-transcode-selected" class="btn btn-primary" disabled>
+                                <i class='bx bx-play-circle'></i> Transcode Selected
+                            </button>
+                            <div class="quality-selector">
+                                <label for="quality-preset">Quality:</label>
+                                <select id="quality-preset" class="select-input">
+                                    <option value="low">Low</option>
+                                    <option value="mid">Mid</option>
+                                    <option value="high">High</option>
+                                    <option value="custom">Custom...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="toolbar-right">
+                            <label class="toggle-label" for="toggle-auto-refresh-lib">
+                                <span class="toggle-text">Auto-update</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="toggle-auto-refresh-lib" checked>
+                                    <span class="slider"></span>
+                                </div>
+                            </label>
+                            <button id="btn-refresh-lib" class="btn btn-icon" title="Refresh List">
+                                <i class='bx bx-refresh'></i>
+                            </button>
+                            <button id="btn-scan-lib" class="btn btn-icon" title="Rescan Database">
+                                <i class='bx bx-radar'></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="toolbar-right">
-                        <label class="auto-refresh-indicator"
-                            style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; margin-right: 1rem;">
-                            <input type="checkbox" id="toggle-auto-refresh-lib" checked
-                                style="width: auto; height: auto;">
-                            Auto-update
-                        </label>
-                        <button id="btn-refresh-lib" class="btn btn-icon" title="Refresh List">
-                            <i class='bx bx-refresh'></i>
-                        </button>
-                        <button id="btn-scan-lib" class="btn btn-icon" title="Rescan Database">
-                            <i class='bx bx-radar'></i>
-                        </button>
-                    </div>
-                </div>
 
-                <div class="list-container">
-                    <!-- Shown when empty -->
-                    <div id="empty-state" class="empty-state hidden">
-                        <div class="empty-icon"><i class='bx bx-folder-open'></i></div>
-                        <h2>Library is Empty</h2>
-                        <p>Scan your configured media directory to find items.</p>
-                        <button id="btn-scan-large" class="btn btn-lrg btn-primary">
-                            <i class='bx bx-radar'></i> SCAN DIRECTORY
-                        </button>
-                    </div>
-
-                    <!-- Shown when there are items -->
-                    <table class="data-table" id="library-table">
-                        <thead>
-                            <tr>
-                                <th class="col-check"><input type="checkbox" id="check-all"></th>
-                                <th class="col-file">Filename</th>
-                                <th class="col-status">Status</th>
-                                <th class="col-info">Info</th>
-                            </tr>
-                        </thead>
-                        <tbody id="library-body">
-                            <!-- Rows injected via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Queue View -->
-            <section id="queue" class="tab-pane">
-                <div class="toolbar">
-                    <h2>Active Tasks</h2>
-                    <div class="toolbar-right">
-                        <label class="auto-refresh-indicator"
-                            style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="toggle-auto-refresh" checked style="width: auto; height: auto;">
-                            Auto-update
-                            <i class='bx bx-loader-alt bx-spin' id="queue-spinner"></i>
-                        </label>
-                        <button id="btn-refresh-queue" class="btn btn-icon" title="Refresh Now">
-                            <i class='bx bx-refresh'></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="list-container">
-                    <div id="queue-empty" class="empty-state hidden">
-                        <div class="empty-icon"><i class='bx bx-check-circle'></i></div>
-                        <h2>No Active Tasks</h2>
-                        <p>Select items from the Library to start transcoding.</p>
+                    <div class="filter-section">
+                        <div class="filter-bar">
+                            <div class="filter-group">
+                                <select id="filter-type" class="select-input">
+                                    <option value="name">Name</option>
+                                    <option value="status">Status</option>
+                                    <option value="info">Info</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" id="filter-value-container">
+                                <input type="text" id="filter-value-name" class="select-input"
+                                    placeholder="Name contains...">
+                                <select id="filter-value-status" class="select-input hidden">
+                                    <option value="PENDING">Pending</option>
+                                    <option value="PROCESSING">Processing</option>
+                                    <option value="DONE">Done</option>
+                                    <option value="ABORTED">Aborted</option>
+                                    <option value="ERROR">Error</option>
+                                    <option value="UNSUPPORTED">Unsupported</option>
+                                </select>
+                                <select id="filter-value-info" class="select-input hidden">
+                                    <option value="h264">H.264</option>
+                                    <option value="hevc">HEVC / H.265</option>
+                                    <option value="1080p">1080p</option>
+                                    <option value="720p">720p</option>
+                                    <option value="4k">4K</option>
+                                </select>
+                            </div>
+                            <button id="btn-add-filter" class="btn btn-primary">
+                                <i class='bx bx-filter-alt'></i> Add Filter
+                            </button>
+                        </div>
+                        <div id="active-filters" class="active-filters-container">
+                            <!-- Active filter tags injected here -->
+                        </div>
                     </div>
 
-                    <div class="queue-list" id="queue-list">
-                        <!-- Queue items injected here -->
+                    <div class="list-container">
+                        <!-- Shown when empty -->
+                        <div id="empty-state" class="empty-state hidden">
+                            <div class="empty-icon"><i class='bx bx-folder-open'></i></div>
+                            <h2>Library is Empty</h2>
+                            <p>Scan your configured media directory to find items.</p>
+                            <button id="btn-scan-large" class="btn btn-lrg btn-primary">
+                                <i class='bx bx-radar'></i> SCAN DIRECTORY
+                            </button>
+                        </div>
+
+                        <!-- Shown when there are items -->
+                        <table class="data-table" id="library-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-check"><input type="checkbox" id="check-all"></th>
+                                    <th class="col-file">Filename</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-info">Info</th>
+                                </tr>
+                            </thead>
+                            <tbody id="library-body">
+                                <!-- Rows injected via JS -->
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </section>
-        </main>
+                </section>
+
+                <!-- Queue View -->
+                <section id="queue" class="tab-pane">
+                    <div class="toolbar">
+                        <h2>Active Tasks</h2>
+                        <div class="toolbar-right">
+                            <label class="toggle-label" for="toggle-auto-refresh">
+                                <span class="toggle-text">Auto-update</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="toggle-auto-refresh" checked>
+                                    <span class="slider"></span>
+                                </div>
+                            </label>
+                            <button id="btn-refresh-queue" class="btn btn-icon" title="Refresh Now">
+                                <i class='bx bx-refresh'></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="list-container">
+                        <div id="queue-empty" class="empty-state hidden">
+                            <div class="empty-icon"><i class='bx bx-check-circle'></i></div>
+                            <h2>No Active Tasks</h2>
+                            <p>Select items from the Library to start transcoding.</p>
+                        </div>
+
+                        <div class="queue-list" id="queue-list">
+                            <!-- Queue items injected here -->
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+        <div class="app-footer-version">Spyglass <span id="spyglass-version">v...</span></div>
     </div>
 
     <!-- Custom Quality Modal -->
