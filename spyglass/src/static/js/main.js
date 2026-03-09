@@ -349,14 +349,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const sizeMb = item.size ? (item.size / (1024 * 1024)).toFixed(1) + ' MB' : '-';
                 const statusUpper = status.toUpperCase();
+                const statusClass = status.toLowerCase().replace(/_/g, '-');
                 const displayName = item.name || (item.path ? item.path.split('/').pop() : 'Unknown');
 
                 tr.innerHTML = `
                     <td class="col-check">${checkboxHtml}</td>
-                    <td class="col-file" title="${item.path || ''}">${displayName}</td>
-                    <td class="col-status"><span class="status-badge ${statusUpper}">${statusUpper}</span></td>
-                    <td class="col-info">${sizeMb} | ${item.codec || '???'}</td>
+                    <td class="col-file"></td>
+                    <td class="col-status"><span class="status-badge ${statusClass}">${statusUpper}</span></td>
+                    <td class="col-info"></td>
                 `;
+
+                tr.querySelector('.col-file').textContent = displayName;
+                tr.querySelector('.col-file').title = item.path || '';
+                tr.querySelector('.col-info').textContent = `${sizeMb} | ${item.codec || '???'}`;
 
                 if (canTranscode) {
                     const cb = tr.querySelector('.row-checkbox');
@@ -421,8 +426,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 el.innerHTML = `
                     <div class="queue-item-info">
-                        <div class="queue-item-title">${displayName}</div>
-                        <div class="queue-item-details">${detailsStr}</div>
+                        <div class="queue-item-title"></div>
+                        <div class="queue-item-details"></div>
                         ${progressHtml}
                     </div>
                     <div class="queue-item-actions">
@@ -431,6 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
                 `;
+
+                el.querySelector('.queue-item-title').textContent = displayName;
+                el.querySelector('.queue-item-details').textContent = detailsStr;
 
                 const btnCancel = el.querySelector('.btn-cancel');
                 btnCancel.addEventListener('click', () => {
