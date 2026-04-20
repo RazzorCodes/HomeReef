@@ -1,30 +1,30 @@
 version: "3.8"
-name: spacesaver-local
+name: homereef-local
 
 services:
-  spacesaver-transcode:
+  homereef-transflux:
     build:
-      context: ../transcoder/app
-      dockerfile: ../containerfile/spacesaver-transcode
-    container_name: spacesaver-transcode
+      context: ../transflux/app
+      dockerfile: ../containerfile/homereef-transflux
+    container_name: homereef-transflux
     ports:
       - "8000:8000"
     volumes:
-      - ../transcoder/app:/storage/spacesaver-transcode:Z
+      - ../transflux/app:/storage/homereef-transflux:Z
       - ${MEDIA_DIR:-/home/andrei/Videos}:/media:Z
     environment:
       - PYTHONPATH=/app/src
     restart: unless-stopped
 
-  spyglass:
+  seaglass:
     build:
-      context: ../spyglass
-      dockerfile: ../spyglass/containerfiles/Containerfile
-    container_name: spyglass
+      context: ../seaglass
+      dockerfile: ../seaglass/containerfiles/Containerfile
+    container_name: seaglass
     ports:
       - "5000:5000"
     environment:
-      - TRANSCODER_URL=http://spacesaver-transcode:8000
+      - TRANSFLUX_URL=http://homereef-transflux:8000
     depends_on:
-      - spacesaver-transcode
+      - homereef-transflux
     restart: unless-stopped

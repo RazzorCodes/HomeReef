@@ -1,5 +1,5 @@
 version: "3.8"
-name: spacesaver-nas
+name: homereef-nas
 
 volumes:
   media_share:
@@ -14,33 +14,33 @@ volumes:
     driver_opts:
       type: nfs
       o: addr=nas.lan,rw
-      device: ":/fast/spacesaver/transcode"
+      device: ":/fast/homereef/transcode"
 
 services:
-  spacesaver-transcode:
+  homereef-transflux:
     build:
-      context: ../transcoder/app
-      dockerfile: ../transcoder/containerfile/spacesaver-transcode
-    container_name: spacesaver-transcode
+      context: ../transflux/app
+      dockerfile: ../transflux/containerfile/homereef-transflux
+    container_name: homereef-transflux
     ports:
       - "8000:8000"
     volumes:
       # Use the named NAS volumes instead of host bind mounts
-      - storage_share:/storage/spacesaver-transcode:Z
+      - storage_share:/storage/homereef-transflux:Z
       - media_share:/media:Z
     environment:
       - PYTHONPATH=/app/src
     restart: unless-stopped
 
-  spyglass:
+  seaglass:
     build:
-      context: ../spyglass
-      dockerfile: ../spyglass/Containerfile
-    container_name: spyglass
+      context: ../seaglass
+      dockerfile: ../seaglass/Containerfile
+    container_name: seaglass
     ports:
       - "5000:5000"
     environment:
-      - TRANSCODER_URL=http://spacesaver-transcode:8000
+      - TRANSFLUX_URL=http://homereef-transflux:8000
     depends_on:
-      - spacesaver-transcode
+      - homereef-transflux
     restart: unless-stopped
