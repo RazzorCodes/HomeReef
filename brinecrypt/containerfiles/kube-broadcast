@@ -1,0 +1,40 @@
+# Multi-stage Containerfile for kube-broadcast
+# Stage 1: Build, test, and validate
+# Stage 2: Minimal runtime image
+
+# ============================================================================
+# Stage 1: Builder and Test
+# ============================================================================
+FROM python:3.11 AS builder
+
+# Install system dependencies required for building and testing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Install Python dependencies (including dev dependencies for testing)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir fastapi "uvicorn[standard]" sqlalchemy watchdog requests pytest pytest-cov ruff
+
+# Copy source code and tests
+RUN echo 1
+COPY src/ /app/src/
+
+# Set PYTHONPATH to include src directory
+ENV PYTHONPATH=/app/src
+
+# Expose server port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the application
+# Note: Configuration should be provided via environment variables or mounted config
+ENTRYPOINT ["python3", "/app/src/kube_broadcast.py"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]
