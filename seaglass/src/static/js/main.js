@@ -6,6 +6,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let libraryRefreshInterval = null;
     let selectedHashes = new Set();
     let activeFilters = [];
+    let libraryError = null;
+    let activeSorts = [];
+
+    const META_FIELDS = [
+        { key: 'size',     label: 'Size' },
+        { key: 'duration', label: 'Dur' },
+        { key: 'bitrate',  label: 'Bitrate' },
+        { key: 'quality',  label: 'Qual' },
+        { key: 'codec',    label: 'Codec' },
+    ];
 
     // Elements
     const tabBtns = document.querySelectorAll('.tab-btn');
@@ -45,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     setupEventListeners();
     setupFilters();
+    setupSortHeaders();
     fetchVersion();
     fetchLibrary();
     fetchQueue();
@@ -86,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
     function setupEventListeners() {
+        document.getElementById('btn-retry').addEventListener('click', fetchLibrary);
         btnScanLib.addEventListener('click', triggerScan);
         btnRefreshLib.addEventListener('click', () => {
             fetchLibrary();
@@ -301,20 +313,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchLibrary() {
         try {
-            // Keep manually applied spin active. Only add it temporarily if auto-refresh is off.
             if (!toggleAutoRefreshLib.checked) {
                 btnRefreshLib.querySelector('i').classList.add('bx-spin-reverse');
             }
             const res = await fetch('/api/list');
             if (res.ok) {
+                libraryError = null;
                 libraryItems = await res.json();
-                renderLibrary();
             } else {
-                showToast('Failed to load library', 'error');
+                const data = await res.json().catch(() => ({}));
+                libraryError = data.error || `Backend error (${res.status})`;
             }
         } catch (e) {
-            showToast('Network error loading library', 'error');
+            libraryError = 'Could not reach the backend service.';
         } finally {
+            renderLibrary();
             if (!toggleAutoRefreshLib.checked) {
                 btnRefreshLib.querySelector('i').classList.remove('bx-spin-reverse');
             }
@@ -495,6 +508,98 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Sort ---
+    function setupSortHeaders() {
+        document.getElementById('th-file').addEventListener('click',   () => handleSortClick('file'));
+        document.getElementById('th-status').addEventListener('click', () => handleSortClick('status'));
+        document.getElementById('th-info').addEventListener('click',   () => handleSortClick('info'));
+    }
+
+    function handleSortClick(col) {
+        const existing = activeSorts.find(s => s.col === col);
+
+        if (!existing) {
+            if (col === 'info') {
+                activeSorts.push({ col, dir: 'asc', metaField: META_FIELDS[0].key });
+            } else {
+                activeSorts.push({ col, dir: 'asc', metaField: null });
+            }
+        } else if (col === 'info') {
+            if (existing.dir === 'asc') {
+                existing.dir = 'desc';
+            } else {
+                const nextIdx = META_FIELDS.findIndex(f => f.key === existing.metaField) + 1;
+                if (nextIdx >= META_FIELDS.length) {
+                    activeSorts = activeSorts.filter(s => s.col !== 'info');
+                } else {
+                    existing.metaField = META_FIELDS[nextIdx].key;
+                    existing.dir = 'asc';
+                }
+            }
+        } else {
+            if (existing.dir === 'asc') {
+                existing.dir = 'desc';
+            } else {
+                activeSorts = activeSorts.filter(s => s.col !== col);
+            }
+        }
+
+        updateSortHeaders();
+        renderLibrary();
+    }
+
+    function updateSortHeaders() {
+        const thFile   = document.getElementById('th-file');
+        const thStatus = document.getElementById('th-status');
+        const thInfo   = document.getElementById('th-info');
+
+        thFile.innerHTML   = 'Filename';
+        thStatus.innerHTML = 'Status';
+        thInfo.innerHTML   = 'Metadata';
+
+        activeSorts.forEach((s, idx) => {
+            const badge = `<span class="sort-badge">${idx + 1}</span>`;
+            const arrow = s.dir === 'asc' ? '↑' : '↓';
+            if (s.col === 'file') {
+                thFile.innerHTML = `Filename <span class="sort-indicator">${arrow}</span>${badge}`;
+            } else if (s.col === 'status') {
+                thStatus.innerHTML = `Status <span class="sort-indicator">${arrow}</span>${badge}`;
+            } else {
+                const label = META_FIELDS.find(f => f.key === s.metaField)?.label || '';
+                thInfo.innerHTML = `Metadata <span class="sort-indicator">${label} ${arrow}</span>${badge}`;
+            }
+        });
+
+        thFile.classList.toggle('sort-active',   activeSorts.some(s => s.col === 'file'));
+        thStatus.classList.toggle('sort-active', activeSorts.some(s => s.col === 'status'));
+        thInfo.classList.toggle('sort-active',   activeSorts.some(s => s.col === 'info'));
+    }
+
+    function getItemSortValue(item, s) {
+        if (s.col === 'file')   return (item.name || item.path || '').toLowerCase();
+        if (s.col === 'status') return (item.status || '').toLowerCase();
+        switch (s.metaField) {
+            case 'size':     return item.size || 0;
+            case 'duration': return item.duration || 0;
+            case 'bitrate':  return item.duration > 0 ? (item.size * 8 / 1000000) / item.duration : 0;
+            case 'quality':  return (item.resolution && item.resolution[1]) || 0;
+            case 'codec':    return (item.codec || '').toLowerCase();
+            default:         return 0;
+        }
+    }
+
+    function applySorts(items) {
+        if (activeSorts.length === 0) return items;
+        return [...items].sort((a, b) => {
+            for (const s of activeSorts) {
+                const va = getItemSortValue(a, s), vb = getItemSortValue(b, s);
+                const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+                if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp;
+            }
+            return 0;
+        });
+    }
+
     // --- Helpers ---
     function formatBytes(bytes) {
         if (!bytes || bytes === 0) return '0 B';
@@ -528,9 +633,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLibrary() {
         const table = document.getElementById('library-table');
         const emptyState = document.getElementById('empty-state');
+        const errorState = document.getElementById('error-state');
         const tbody = document.getElementById('library-body');
 
         tbody.innerHTML = '';
+
+        if (libraryError) {
+            table.classList.add('hidden');
+            emptyState.classList.add('hidden');
+            errorState.classList.remove('hidden');
+            document.getElementById('error-state-msg').textContent = libraryError;
+            updateTranscodeButton();
+            return;
+        }
+
+        errorState.classList.add('hidden');
 
         let filteredItems = libraryItems;
 
@@ -584,6 +701,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
+
+        filteredItems = applySorts(filteredItems);
 
         if (!filteredItems || filteredItems.length === 0) {
             table.classList.add('hidden');

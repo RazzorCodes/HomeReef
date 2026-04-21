@@ -1,5 +1,5 @@
 annotated-doc==0.0.4
-jackfield
+jackfield>=0.2.0
 annotated-types==0.7.0
 anyio==4.12.1
 click==8.3.1

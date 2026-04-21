@@ -126,6 +126,16 @@
                     </div>
 
                     <div class="list-container">
+                        <!-- Shown when transflux is unreachable -->
+                        <div id="error-state" class="empty-state hidden">
+                            <div class="empty-icon empty-icon--error"><i class='bx bx-wifi-off'></i></div>
+                            <h2>Transflux Unreachable</h2>
+                            <p id="error-state-msg">Could not connect to the backend service.</p>
+                            <button id="btn-retry" class="btn btn-lrg btn-primary">
+                                <i class='bx bx-refresh'></i> Retry
+                            </button>
+                        </div>
+
                         <!-- Shown when empty -->
                         <div id="empty-state" class="empty-state hidden">
                             <div class="empty-icon"><i class='bx bx-folder-open'></i></div>
@@ -141,9 +151,9 @@
                             <thead>
                                 <tr>
                                     <th class="col-check"><input type="checkbox" id="check-all"></th>
-                                    <th class="col-file">Filename</th>
-                                    <th class="col-status">Status</th>
-                                    <th class="col-info">Metadata</th>
+                                    <th class="col-file" id="th-file">Filename</th>
+                                    <th class="col-status" id="th-status">Status</th>
+                                    <th class="col-info" id="th-info">Metadata</th>
                                 </tr>
                             </thead>
                             <tbody id="library-body">

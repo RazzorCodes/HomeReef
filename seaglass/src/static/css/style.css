@@ -419,6 +419,11 @@ input[type="checkbox"] {
     opacity: 0.5;
 }
 
+.empty-icon--error {
+    color: var(--accent-danger);
+    opacity: 0.8;
+}
+
 .empty-state h2 {
     color: var(--text-primary);
     margin-bottom: 0.5rem;
@@ -941,4 +946,46 @@ input[type="number"] {
 .btn-danger-outline:hover {
     background: rgba(239, 68, 68, 0.1);
     border-color: var(--accent-danger);
+}
+
+/* --- Sort Controls --- */
+#th-file,
+#th-status,
+#th-info {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color var(--transition);
+}
+
+#th-file:hover,
+#th-status:hover,
+#th-info:hover {
+    color: var(--text-primary);
+}
+
+.sort-active {
+    color: var(--accent-primary) !important;
+}
+
+.sort-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-left: 3px;
+}
+
+.sort-indicator {
+    color: var(--accent-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-left: 4px;
 }
