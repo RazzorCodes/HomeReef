@@ -6,6 +6,7 @@ import (
 
 	"brinecrypt/internal/api"
 	"brinecrypt/internal/migrate"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -22,9 +23,26 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+
+	// auth
+
+	mux.HandleFunc("POST /auth/login", api.Login(db))
+	mux.HandleFunc("POST /auth/refresh", api.Refresh(db))
+	mux.HandleFunc("DELETE /auth/logout", api.Logout(db))
+
+	// mux.HandleFunc("POST /api/v1/tokens/pat", api.IssuePAT(db))
+	// mux.HandleFunc("POST /api/v1/tokens/capability", api.IssueCapabilityToken(db))
+	// mux.HandleFunc("DELETE /api/v1/tokens/{id}", api.RevokeToken(db))
+
+	// admin
+	mux.HandleFunc("POST /admin/users", api.CreateUser(db))
+
+	// resource
+
 	mux.HandleFunc("GET /api/v1/{namespace}", api.ListResourcesInNamespace(db))
 	mux.HandleFunc("GET /api/v1/{namespace}/{name}", api.GetResource(db))
 	mux.HandleFunc("PUT /api/v1/{namespace}/{name}", api.PutResource(db))
+	mux.HandleFunc("DELETE /api/v1/{namespace}/{name}", api.DeleteResource(db))
 	mux.HandleFunc("GET /api/v1/{namespace}/{name}/versions", api.ListResourceVersions(db))
 	mux.HandleFunc("GET /api/v1/{namespace}/{name}/{version}", api.GetResourceByVersion(db))
 	mux.HandleFunc("GET /api/v1/uuid/{uuid}", api.GetResourceValue(db))

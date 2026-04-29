@@ -139,6 +139,24 @@ func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 	}
 }
 
+func DeleteResource(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		namespace := r.PathValue("namespace")
+		name := r.PathValue("name")
+
+		if err := store.DeleteResource(db, namespace, name); err != nil {
+			if err == gorm.ErrRecordNotFound {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func PutResource(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		namespace := r.PathValue("namespace")
