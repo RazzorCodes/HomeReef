@@ -38,6 +38,12 @@ func ListResourceVersions(db *gorm.DB, resourceID uint) ([]orm.ResourceValue, er
 	return versions, err
 }
 
+func CountResourceVersions(db *gorm.DB, resourceID uint) (int64, error) {
+    var count int64
+    err := db.Model(&orm.ResourceValue{}).Where("resource_id = ?", resourceID).Count(&count).Error
+    return count, err
+}
+
 func CreateResourceValue(db *gorm.DB, rv *orm.ResourceValue) error {
 	var max uint
 	db.Model(&orm.ResourceValue{}).

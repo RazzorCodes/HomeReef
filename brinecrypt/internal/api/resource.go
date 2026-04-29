@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"fmt"
 
 	"brinecrypt/internal/orm"
 	"brinecrypt/internal/store"
@@ -70,8 +71,34 @@ func ListResourceVersions(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		var versionsSummary []ResourceValueSummary
+		for _, v := range versions {
+			versionsSummary = append(versionsSummary, SummarizeResourceValue(v))
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(versions)
+		json.NewEncoder(w).Encode(versionsSummary)
+	}
+}
+
+func ListResourcesInNamespace(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		namespace := r.PathValue("namespace")
+		resources, err := store.ListResources(db, namespace)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		var summary []ResourceSummary
+		for _, resource := range resources {
+			s := SummarizeResource(resource)
+			summary = append(summary, s)
+		}
+		fmt.Println(summary)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(summary)
 	}
 }
 
