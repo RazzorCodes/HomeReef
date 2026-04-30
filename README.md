@@ -2,14 +2,16 @@
 
 HomeReef is an automated media transcode suite designed to optimize your media library for space efficiency by converting videos to H.265 (HEVC) MKV format.
 
-The project consists of two main components:
+The project consists of three main components:
 - **Transflux**: The heavy-lifting backend engine that orchestrates media scanning and transcoding.
 - **Seaglass**: A modern web-based dashboard for monitoring and managing your HomeReef instance.
+- **Brinecrypt**: A secure resource management and encryption service for sensitive configuration and secrets.
 
 ## Project Structure
 
 - `transflux/`: The core transcoding engine (FastAPI + Jackfield message bus).
 - `seaglass/`: The web user interface (Flask + Vanilla JS).
+- `brinecrypt/`: The security and secrets management service (Go + PostgreSQL).
 - `containerfiles/`: Orchestration configurations (Docker Compose).
 - `test-data/`: Sample data and environment for testing.
 
@@ -53,23 +55,49 @@ Seaglass provides a user-friendly interface to interact with Transflux without u
 
 ---
 
+## Brinecrypt (Security & Secrets)
+
+Brinecrypt is a centralized service for managing sensitive configuration data and secrets with transparent AES-256-GCM encryption.
+
+### Key Features
+- **Transparent Encryption**: Automatically encrypts resources using per-version unique Data Encryption Keys (DEKs).
+- **Resource Versioning**: Full history of all resource changes and easy retrieval of previous versions.
+- **Granular RBAC**: Flexible permission system based on Principals, Verbs, and Resource Patterns.
+- **Multi-layered Auth**: Supports Sessions, Personal Access Tokens (PATs), Capability Tokens, and K8s Service Accounts.
+
+---
+
 ## Setup & Deployment
 
-The easiest way to run HomeReef is using Docker Compose.
+HomeReef components can be deployed using Docker Compose.
 
-### Quick Start (Local)
+### Quick Start (Core Suite)
 
 1. Clone the repository.
 2. Configure your media directory:
    ```bash
    export MEDIA_DIR=/path/to/your/videos
    ```
-3. Launch the stack:
+3. Launch the core stack (Transflux + Seaglass):
    ```bash
    cd containerfiles
    docker-compose up -d
    ```
 4. Access the UI at `http://localhost:5000` and the API at `http://localhost:8000`.
+
+### Brinecrypt Setup
+
+Brinecrypt runs as a standalone service with its own PostgreSQL database.
+
+1. Navigate to the brinecrypt directory:
+   ```bash
+   cd brinecrypt
+   ```
+2. Launch the service:
+   ```bash
+   docker-compose up -d
+   ```
+3. Access the Brinecrypt API at `http://localhost:8080`.
 
 ### Configuration
 
@@ -83,6 +111,10 @@ Both services are configured via environment variables:
 
 **Seaglass:**
 - `TRANSFLUX_URL`: URL where Seaglass can reach Transflux (Default: `http://homereef-transflux:8000`).
+
+**Brinecrypt:**
+- `DATABASE_URL`: PostgreSQL connection string.
+- `BRINECRYPT_KEK`: 32-byte hex string used as the Master Key Encryption Key.
 
 ---
 
