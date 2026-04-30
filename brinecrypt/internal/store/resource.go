@@ -4,6 +4,7 @@ import (
 	"brinecrypt/internal/orm"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func GetResource(db *gorm.DB, namespace string, name string) (*orm.Resource, error) {
@@ -39,8 +40,16 @@ func CreateResource(db *gorm.DB, r *orm.Resource) error {
 }
 
 func DeleteResource(db *gorm.DB, namespace string, name string) error {
-	return db.
-		Joins("JOIN namespaces ON namespaces.id = resources.namespace_id").
-		Where("namespaces.name = ? AND resources.name = ?", namespace, name).
-		Delete(&orm.Resource{}).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		var r orm.Resource
+		err := tx.
+			Joins("JOIN namespaces ON namespaces.id = resources.namespace_id").
+			Where("namespaces.name = ? AND resources.name = ?", namespace, name).
+			First(&r).Error
+		if err != nil {
+			return err
+		}
+
+		return tx.Select(clause.Associations).Delete(&r).Error
+	})
 }

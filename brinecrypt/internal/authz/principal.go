@@ -60,6 +60,9 @@ func ValidateAddPattern(pattern string) error {
 	if parts[0] == "*" {
 		return fmt.Errorf("wildcard namespace not allowed when granting permissions")
 	}
+	if parts[0] == "_" {
+		return fmt.Errorf("reserved namespace not allowed when granting permissions")
+	}
 	if parts[0] == "" || parts[1] == "" {
 		return fmt.Errorf("invalid pattern %q", pattern)
 	}
@@ -70,6 +73,9 @@ func ValidateDeletePattern(pattern string) error {
 	parts := strings.SplitN(pattern, "/", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid pattern %q, expected <namespace>/<name>", pattern)
+	}
+	if parts[0] == "_" {
+		return fmt.Errorf("reserved namespace not allowed when revoking permissions")
 	}
 	if parts[0] == "" || parts[1] == "" {
 		return fmt.Errorf("invalid pattern %q", pattern)

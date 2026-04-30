@@ -8,7 +8,7 @@ type CapabilityToken struct {
 	Issuer      *User        `gorm:"foreignKey:IssuedBy" json:"-"`
 	TokenHash   string       `gorm:"column:token_hash" json:"-"`
 	CreatedAt   time.Time    `gorm:"column:created_at" json:"created_at"`
-	Permissions []Permission `gorm:"many2many:capability_token_permissions;" json:"permissions,omitempty"`
+	Permissions []Permission `gorm:"many2many:capability_token_permissions;constraint:OnDelete:CASCADE;" json:"permissions,omitempty"`
 }
 
 func (CapabilityToken) TableName() string {

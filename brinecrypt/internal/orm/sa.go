@@ -7,7 +7,7 @@ type SA struct {
 	Namespace   string       `gorm:"column:sa_namespace" json:"namespace"`
 	Name        string       `gorm:"column:sa_name" json:"name"`
 	SyncedAt    time.Time    `gorm:"column:synced_at" json:"synced_at"`
-	Permissions []Permission `gorm:"many2many:sa_permissions;" json:"permissions,omitempty"`
+	Permissions []Permission `gorm:"many2many:sa_permissions;constraint:OnDelete:CASCADE;" json:"permissions,omitempty"`
 }
 
 func (SA) TableName() string {

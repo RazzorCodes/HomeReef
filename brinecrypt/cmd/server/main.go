@@ -27,6 +27,7 @@ func main() {
 
 	ctx := context.Background()
 	k8s.StartSync(ctx, db)
+	k8s.StartAdminTokenSync(ctx)
 
 	mux := http.NewServeMux()
 
@@ -42,7 +43,10 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/tokens/capability/{id}", api.RevokeCapabilityToken(db))
 
 	// admin
+	mux.HandleFunc("GET /admin/users", api.ListUsers(db))
 	mux.HandleFunc("POST /admin/users", api.CreateUser(db))
+	mux.HandleFunc("GET /admin/users/{name}", api.GetUserByName(db))
+	mux.HandleFunc("DELETE /admin/users/{name}", api.DeleteUserByName(db))
 	mux.HandleFunc("POST /admin/permissions", api.GrantPermissions(db))
 	mux.HandleFunc("DELETE /admin/permissions", api.RevokePermissions(db))
 

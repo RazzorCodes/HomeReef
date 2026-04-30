@@ -91,5 +91,8 @@ func ValidateResourcePattern(pattern string) error {
 	if parts[0] == "*" {
 		return fmt.Errorf("wildcard namespace not allowed in pattern %q", pattern)
 	}
+	if parts[0] == "_" {
+		return fmt.Errorf("reserved namespace not allowed in pattern %q", pattern)
+	}
 	return nil
 }

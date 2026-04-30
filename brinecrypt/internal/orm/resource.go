@@ -57,7 +57,7 @@ type Resource struct {
 	CreatedBy   string       `gorm:"column:created_by" json:"created_by"`
 	RetiredAt   *time.Time   `gorm:"column:retired_at" json:"retired_at,omitempty"`
 
-	Value *ResourceValue `gorm:"foreignKey:ResourceId" json:"value,omitempty"`
+	Value *ResourceValue `gorm:"foreignKey:ResourceId;constraint:OnDelete:CASCADE;" json:"value,omitempty"`
 }
 
 func (Resource) TableName() string {

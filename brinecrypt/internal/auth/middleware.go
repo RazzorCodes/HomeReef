@@ -15,6 +15,14 @@ import (
 	"gorm.io/gorm"
 )
 
+const BootstrapContextKey contextKey = "bootstrap"
+const AuthMethodContextKey contextKey = "auth_method"
+
+const (
+	AuthMethodSession = "session"
+	AuthMethodPAT     = "pat"
+)
+
 const (
 	SessionPrefix    = "sess_"
 	RefreshPrefix    = "refr_"
@@ -32,17 +40,26 @@ const (
 
 func AuthMiddleware(db *gorm.DB, next http.Handler) http.Handler {
 	public := map[string]bool{
-		"/auth/login":        true,
-		"/admin/users":       true,
-		"/admin/permissions": true,
+		"/auth/login": true,
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/_") {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+
 		if public[r.URL.Path] {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		raw := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+		if r.Method == "POST" && r.URL.Path == "/admin/users" && k8s.IsBootstrapToken(raw) {
+			ctx := context.WithValue(r.Context(), BootstrapContextKey, true)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
 		if raw == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -56,6 +73,7 @@ func AuthMiddleware(db *gorm.DB, next http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, AuthMethodContextKey, AuthMethodSession)
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		case strings.HasPrefix(raw, PATPrefix):
@@ -65,6 +83,7 @@ func AuthMiddleware(db *gorm.DB, next http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, AuthMethodContextKey, AuthMethodPAT)
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		case strings.HasPrefix(raw, CapabilityPrefix):

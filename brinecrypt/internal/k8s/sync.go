@@ -114,45 +114,27 @@ func applySync(db *gorm.DB, data string) {
 }
 
 func syncSA(db *gorm.DB, entry saEntry) error {
-	// TODO(human): implement syncSA
-	//
-	// Steps:
-	//   1. GetOrCreateSA using entry.Namespace and entry.Name
-	//   2. Build []orm.Permission from entry.Permissions — use orm.ParseVerb to convert each verb string
-	//      and skip (with a logger.Warn) any entry with an unknown verb
-	//   3. Call store.ReplaceSAPermissions to atomically swap the SA's permission rows
-	//   4. Call store.UpdateSASyncedAt to stamp the sync time
-	//
-	// Return any error from steps 1, 3, or 4.
 	sa, err := store.GetOrCreateSA(db, entry.Namespace, entry.Name)
 	if err != nil {
 		return err
 	}
 
-	var res []orm.Permission
+	var permissions []orm.Permission
 	for _, p := range entry.Permissions {
+		if err := orm.ValidateResourcePattern(p.ResourcePattern); err != nil {
+			logger.Warn("SA sync: invalid pattern " + p.ResourcePattern + ": " + err.Error())
+			continue
+		}
 		v, err := orm.ParseVerb(p.Verb)
 		if err != nil {
-			logger.Warn("Unknown Verb " + p.Verb)
+			logger.Warn("SA sync: invalid verb " + p.Verb + ": " + err.Error())
 			continue
 		}
-		err = orm.ValidateResourcePattern(p.ResourcePattern)
-		if err != nil {
-			logger.Warn("Unknown resource pattern " + p.ResourcePattern)
-			continue
-		}
-
-		res = append(res, orm.Permission{
-			ResourcePattern: p.ResourcePattern
-			Verb: v,
-			CreatedAt: time.Now(),
-			ExpiresAt: ,
-			
-		})
-
+		permissions = append(permissions, orm.NewPermission(p.ResourcePattern, v, nil))
 	}
-	_ = store.ReplaceSAPermissions(db, sa.Id)
-	_ = store.UpdateSASyncedAt
-	_ = orm.ParseVerb
-	return nil
+
+	if err := store.ReplaceSAPermissions(db, sa.Id, permissions); err != nil {
+		return err
+	}
+	return store.UpdateSASyncedAt(db, sa.Id)
 }
