@@ -106,12 +106,8 @@ func GrantPermissions(db *gorm.DB) http.HandlerFunc {
 		}
 
 		for _, entry := range body.Permissions {
-			p := &orm.Permission{
-				ResourcePattern: entry.ResourcePattern,
-				Verb:            entry.Verb,
-				ExpiresAt:       entry.ExpiresAt,
-			}
-			if err := store.CreatePermission(db, p); err != nil {
+			p := orm.NewPermission(entry.ResourcePattern, entry.Verb, entry.ExpiresAt)
+			if err := store.CreatePermission(db, &p); err != nil {
 				logger.Error("create permission failed: " + err.Error())
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return

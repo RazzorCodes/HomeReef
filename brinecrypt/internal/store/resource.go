@@ -13,7 +13,7 @@ func GetResource(db *gorm.DB, namespace string, name string) (*orm.Resource, err
 		Where("namespaces.name = ? AND resources.name = ?", namespace, name).
 		Preload("Namespace").
 		Preload("Value", func(db *gorm.DB) *gorm.DB {
-			return db.Order("version DESC").Limit(1)
+			return db.Preload("EncryptionKey").Order("version DESC").Limit(1)
 		}).
 		First(&r).Error
 	return &r, err

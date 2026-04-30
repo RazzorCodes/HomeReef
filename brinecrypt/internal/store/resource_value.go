@@ -8,13 +8,13 @@ import (
 
 func GetResourceValueByUUID(db *gorm.DB, uuid string) (*orm.ResourceValue, error) {
 	var rv orm.ResourceValue
-	err := db.Where("uuid = ?", uuid).First(&rv).Error
+	err := db.Preload("EncryptionKey").Where("uuid = ?", uuid).First(&rv).Error
 	return &rv, err
 }
 
 func GetLatestResourceValue(db *gorm.DB, resourceID uint) (*orm.ResourceValue, error) {
 	var rv orm.ResourceValue
-	err := db.
+	err := db.Preload("EncryptionKey").
 		Where("resource_id = ?", resourceID).
 		Order("version DESC").
 		First(&rv).Error
@@ -23,7 +23,7 @@ func GetLatestResourceValue(db *gorm.DB, resourceID uint) (*orm.ResourceValue, e
 
 func GetResourceVersion(db *gorm.DB, resourceID uint, version uint) (*orm.ResourceValue, error) {
 	var rv orm.ResourceValue
-	err := db.
+	err := db.Preload("EncryptionKey").
 		Where("resource_id = ? AND version = ?", resourceID, version).
 		First(&rv).Error
 	return &rv, err
@@ -39,9 +39,9 @@ func ListResourceVersions(db *gorm.DB, resourceID uint) ([]orm.ResourceValue, er
 }
 
 func CountResourceVersions(db *gorm.DB, resourceID uint) (int64, error) {
-    var count int64
-    err := db.Model(&orm.ResourceValue{}).Where("resource_id = ?", resourceID).Count(&count).Error
-    return count, err
+	var count int64
+	err := db.Model(&orm.ResourceValue{}).Where("resource_id = ?", resourceID).Count(&count).Error
+	return count, err
 }
 
 func CreateResourceValue(db *gorm.DB, rv *orm.ResourceValue) error {

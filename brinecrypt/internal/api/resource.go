@@ -2,12 +2,15 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"brinecrypt/internal/auth"
 	"brinecrypt/internal/authz"
+	"brinecrypt/internal/crypto"
+	"brinecrypt/internal/logger"
 	"brinecrypt/internal/orm"
 	"brinecrypt/internal/store"
 
@@ -66,6 +69,29 @@ func principalFromContext(r *http.Request) (*authz.Principal, bool) {
 	return nil, false
 }
 
+func decryptValue(rv *orm.ResourceValue) error {
+	if rv.EncryptionAlgorithm == orm.EncryptionAlgorithmUndefined {
+		return nil
+	}
+	if rv.EncryptionKey == nil {
+		return fmt.Errorf("encryption key not loaded for version %d", rv.Version)
+	}
+	kek, err := crypto.GetKEK()
+	if err != nil {
+		return err
+	}
+	dek, err := crypto.DecryptDEK(rv.EncryptionKey.EncryptedDEK, kek)
+	if err != nil {
+		return err
+	}
+	plaintext, err := crypto.DecryptValue(rv.Data, dek)
+	if err != nil {
+		return err
+	}
+	rv.Data = plaintext
+	return nil
+}
+
 func GetResourceValue(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		principal, ok := principalFromContext(r)
@@ -94,6 +120,12 @@ func GetResourceValue(db *gorm.DB) http.HandlerFunc {
 		allowed, err := authz.Check(db, principal, orm.VerbTypeRead, resource.Namespace.Name, resource.Name)
 		if err != nil || !allowed {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if err := decryptValue(rv); err != nil {
+			logger.Error("decrypt resource value: " + err.Error())
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -127,6 +159,14 @@ func GetResource(db *gorm.DB) http.HandlerFunc {
 			}
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
+		}
+
+		if resource.Value != nil {
+			if err := decryptValue(resource.Value); err != nil {
+				logger.Error("decrypt resource value: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -253,6 +293,12 @@ func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		if err := decryptValue(rv); err != nil {
+			logger.Error("decrypt resource value: " + err.Error())
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rv)
 	}
@@ -346,11 +392,53 @@ func PutResource(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		data := body.Value
+		algorithm := orm.EncryptionAlgorithmUndefined
+		var encKeyId *uint
+
+		if resource.Type == orm.ResourceTypeEncrypted {
+			kek, err := crypto.GetKEK()
+			if err != nil {
+				logger.Error("get KEK: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			dek, err := crypto.GenerateDEK()
+			if err != nil {
+				logger.Error("generate DEK: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			data, err = crypto.EncryptValue(body.Value, dek)
+			if err != nil {
+				logger.Error("encrypt value: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			encryptedDEK, err := crypto.EncryptDEK(dek, kek)
+			if err != nil {
+				logger.Error("encrypt DEK: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			encKey, err := store.CreateEncryptionKey(db, encryptedDEK, 1)
+			if err != nil {
+				logger.Error("store encryption key: " + err.Error())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			encKeyId = &encKey.Id
+			algorithm = orm.EncryptionAlgorithmAES256GCM
+		}
+
 		rv := &orm.ResourceValue{
-			ResourceId: resource.Id,
-			Data:       body.Value,
+			ResourceId:          resource.Id,
+			Data:                data,
+			EncryptionAlgorithm: algorithm,
+			EncryptionKeyId:     encKeyId,
 		}
 		if err := store.CreateResourceValue(db, rv); err != nil {
+			logger.Error("create resource value: " + err.Error())
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}

@@ -3,6 +3,7 @@ package orm
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -50,6 +51,17 @@ func (v *Verb) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// NoExpiry is the sentinel stored when a permission has no explicit expiry.
+var NoExpiry = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
+
+func NewPermission(pattern string, verb Verb, expiry *time.Time) Permission {
+	e := NoExpiry
+	if expiry != nil {
+		e = *expiry
+	}
+	return Permission{ResourcePattern: pattern, Verb: verb, ExpiresAt: &e}
+}
+
 type Permission struct {
 	Id              uint       `gorm:"primaryKey" json:"-"`
 	ResourcePattern string     `gorm:"column:resource_pattern" json:"resource_pattern"`
@@ -60,4 +72,24 @@ type Permission struct {
 
 func (Permission) TableName() string {
 	return "permissions"
+}
+
+func ParseVerb(s string) (Verb, error) {
+	v, ok := verbTypeValues[s]
+	if !ok {
+		return 0, fmt.Errorf("unknown verb %q", s)
+	}
+	return v, nil
+}
+
+// ValidateResourcePattern checks that pattern is namespace/name, rejects wildcard namespace.
+func ValidateResourcePattern(pattern string) error {
+	parts := strings.SplitN(pattern, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return fmt.Errorf("invalid pattern %q: must be <namespace>/<name>", pattern)
+	}
+	if parts[0] == "*" {
+		return fmt.Errorf("wildcard namespace not allowed in pattern %q", pattern)
+	}
+	return nil
 }

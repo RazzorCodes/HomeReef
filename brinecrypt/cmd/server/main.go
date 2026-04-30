@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 
 	"brinecrypt/internal/api"
 	"brinecrypt/internal/auth"
+	"brinecrypt/internal/k8s"
 	"brinecrypt/internal/migrate"
 
 	"gorm.io/driver/postgres"
@@ -22,6 +24,9 @@ func main() {
 	if err := migrate.Migrate(db); err != nil {
 		panic(err)
 	}
+
+	ctx := context.Background()
+	k8s.StartSync(ctx, db)
 
 	mux := http.NewServeMux()
 
