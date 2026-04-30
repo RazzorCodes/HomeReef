@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"brinecrypt/internal/api"
+	"brinecrypt/internal/auth"
 	"brinecrypt/internal/migrate"
 
 	"gorm.io/driver/postgres"
@@ -36,6 +37,8 @@ func main() {
 
 	// admin
 	mux.HandleFunc("POST /admin/users", api.CreateUser(db))
+	mux.HandleFunc("POST /admin/permissions", api.GrantPermissions(db))
+	mux.HandleFunc("DELETE /admin/permissions", api.RevokePermissions(db))
 
 	// resource
 
@@ -47,5 +50,5 @@ func main() {
 	mux.HandleFunc("GET /api/v1/{namespace}/{name}/{version}", api.GetResourceByVersion(db))
 	mux.HandleFunc("GET /api/v1/uuid/{uuid}", api.GetResourceValue(db))
 
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(":8080", auth.AuthMiddleware(db, mux))
 }

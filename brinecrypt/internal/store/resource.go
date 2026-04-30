@@ -28,6 +28,12 @@ func ListResources(db *gorm.DB, namespace string) ([]orm.Resource, error) {
 	return resources, err
 }
 
+func GetResourceByID(db *gorm.DB, id uint) (*orm.Resource, error) {
+	var r orm.Resource
+	err := db.Preload("Namespace").First(&r, id).Error
+	return &r, err
+}
+
 func CreateResource(db *gorm.DB, r *orm.Resource) error {
 	return db.Create(r).Error
 }

@@ -6,10 +6,19 @@ import (
 	"strings"
 
 	"brinecrypt/internal/auth"
-	"brinecrypt/internal/store"
-	"golang.org/x/crypto/bcrypt"
+
 	"gorm.io/gorm"
 )
+
+type LoginRequestBody struct {
+	User string `json:"user"`
+	Pass string `json:"pass"`
+}
+
+type LoginResponseBody struct {
+	SessionToken string `json:"session_token"`
+	RefreshToken string `json:"refresh_token"`
+}
 
 func Login(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -19,61 +28,43 @@ func Login(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		u, err := store.GetUser(db, request.User)
+		tokens, err := auth.Login(db, request.User, request.Pass)
 		if err != nil {
 			http.Error(w, "incorrect user or password", http.StatusUnauthorized)
-			return
-		}
-
-		if err := bcrypt.CompareHashAndPassword([]byte(u.Pass), []byte(request.Pass)); err != nil {
-			http.Error(w, "incorrect user or password", http.StatusUnauthorized)
-			return
-		}
-
-		response, err := NewSession(db, u)
-		if err != nil {
-			http.Error(w, "could not create session", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(LoginResponseBody{
+			SessionToken: tokens.SessionToken,
+			RefreshToken: tokens.RefreshToken,
+		})
 	}
+}
+
+type RefreshSessionRequest struct {
+	Token string `json:"token"`
 }
 
 func Refresh(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if token == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		var request RefreshSessionRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.Token == "" {
+			http.Error(w, "malformed input", http.StatusBadRequest)
 			return
 		}
 
-		session, err := store.GetSessionByRefreshTokenHash(db, auth.HashToken(token))
+		tokens, err := auth.Refresh(db, request.Token)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		u, err := store.GetUserById(db, session.UserId)
-		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		response, err := NewSession(db, u)
-		if err != nil {
-			http.Error(w, "could not refresh session", http.StatusInternalServerError)
-			return
-		}
-
-		if err := store.DeleteSession(db, session.Id); err != nil {
-			http.Error(w, "could not refresh session", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(LoginResponseBody{
+			SessionToken: tokens.SessionToken,
+			RefreshToken: tokens.RefreshToken,
+		})
 	}
 }
 
@@ -85,14 +76,8 @@ func Logout(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		session, err := store.GetSessionByTokenHash(db, auth.HashToken(token))
-		if err != nil {
+		if err := auth.Logout(db, token); err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		if err := store.DeleteSession(db, session.Id); err != nil {
-			http.Error(w, "could not logout", http.StatusInternalServerError)
 			return
 		}
 

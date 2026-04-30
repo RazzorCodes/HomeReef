@@ -1,6 +1,8 @@
 package store
 
 import (
+	"time"
+
 	"brinecrypt/internal/orm"
 
 	"gorm.io/gorm"
@@ -26,6 +28,13 @@ func UpdateSessionTokens(db *gorm.DB, id uint, tokenHash string, refreshTokenHas
 	return db.Model(&orm.Session{}).Where("id = ?", id).Updates(map[string]any{
 		"token_hash":         tokenHash,
 		"refresh_token_hash": refreshTokenHash,
+	}).Error
+}
+
+func InvalidateSession(db *gorm.DB, id uint) error {
+	return db.Model(&orm.Session{}).Where("id = ?", id).Updates(map[string]any{
+		"expires_at":         time.Now().Add(-time.Second),
+		"refresh_token_hash": "",
 	}).Error
 }
 

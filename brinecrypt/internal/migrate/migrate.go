@@ -8,7 +8,9 @@ import (
 
 func Migrate(db *gorm.DB) error {
 	return db.AutoMigrate(
+		&orm.Permission{},
 		&orm.User{},
+		&orm.SA{},
 		&orm.Session{},
 		&orm.PAT{},
 		&orm.CapabilityToken{},

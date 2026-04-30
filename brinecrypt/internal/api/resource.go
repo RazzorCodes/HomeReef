@@ -4,24 +4,91 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"fmt"
+	"time"
 
+	"brinecrypt/internal/auth"
+	"brinecrypt/internal/authz"
 	"brinecrypt/internal/orm"
 	"brinecrypt/internal/store"
+
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
+type ResourceSummary struct {
+	Name      string           `json:"name"`
+	Type      orm.ResourceType `json:"type"`
+	CreatedAt time.Time        `json:"created_at"`
+	CreatedBy string           `json:"created_by"`
+	RetiredAt *time.Time       `json:"retired_at,omitempty"`
+}
+
+func SummarizeResource(r orm.Resource) ResourceSummary {
+	return ResourceSummary{
+		Name:      r.Name,
+		Type:      r.Type,
+		CreatedAt: r.CreatedAt,
+		CreatedBy: r.CreatedBy,
+		RetiredAt: r.RetiredAt,
+	}
+}
+
+type ResourceValueSummary struct {
+	Uuid                uuid.UUID               `json:"uuid"`
+	Version             uint                    `json:"version"`
+	CreatedBy           string                  `json:"created_by"`
+	CreatedAt           time.Time               `json:"created_at"`
+	RetiredAt           *time.Time              `json:"retired_at,omitempty"`
+	EncryptionAlgorithm orm.EncryptionAlgorithm `json:"encryption_algorithm"`
+}
+
+func SummarizeResourceValue(r orm.ResourceValue) ResourceValueSummary {
+	return ResourceValueSummary{
+		Uuid:                r.Uuid,
+		Version:             r.Version,
+		CreatedAt:           r.CreatedAt,
+		CreatedBy:           r.CreatedBy,
+		RetiredAt:           r.RetiredAt,
+		EncryptionAlgorithm: r.EncryptionAlgorithm,
+	}
+}
+
+func principalFromContext(r *http.Request) (*authz.Principal, bool) {
+	user, ok := r.Context().Value(auth.UserContextKey).(*orm.User)
+	if !ok {
+		return nil, false
+	}
+	return authz.NewPrincipalFromUser(user), true
+}
+
 func GetResourceValue(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uuid := r.PathValue("uuid")
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
 
-		rv, err := store.GetResourceValueByUUID(db, uuid)
+		uuidStr := r.PathValue("uuid")
+		rv, err := store.GetResourceValueByUUID(db, uuidStr)
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				http.Error(w, "not found", http.StatusNotFound)
 				return
 			}
 			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		resource, err := store.GetResourceByID(db, rv.ResourceId)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeRead, resource.Namespace.Name, resource.Name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -32,8 +99,20 @@ func GetResourceValue(db *gorm.DB) http.HandlerFunc {
 
 func GetResource(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
 		name := r.PathValue("name")
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeRead, namespace, name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 
 		resource, err := store.GetResource(db, namespace, name)
 		if err != nil {
@@ -52,8 +131,20 @@ func GetResource(db *gorm.DB) http.HandlerFunc {
 
 func ListResourceVersions(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
 		name := r.PathValue("name")
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeList, namespace, name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 
 		resource, err := store.GetResource(db, namespace, name)
 		if err != nil {
@@ -71,19 +162,32 @@ func ListResourceVersions(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		var versionsSummary []ResourceValueSummary
+		var summary []ResourceValueSummary
 		for _, v := range versions {
-			versionsSummary = append(versionsSummary, SummarizeResourceValue(v))
+			summary = append(summary, SummarizeResourceValue(v))
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(versionsSummary)
+		json.NewEncoder(w).Encode(summary)
 	}
 }
 
 func ListResourcesInNamespace(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeList, namespace, "*")
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
 		resources, err := store.ListResources(db, namespace)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -92,10 +196,8 @@ func ListResourcesInNamespace(db *gorm.DB) http.HandlerFunc {
 
 		var summary []ResourceSummary
 		for _, resource := range resources {
-			s := SummarizeResource(resource)
-			summary = append(summary, s)
+			summary = append(summary, SummarizeResource(resource))
 		}
-		fmt.Println(summary)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(summary)
@@ -104,6 +206,12 @@ func ListResourcesInNamespace(db *gorm.DB) http.HandlerFunc {
 
 func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
 		name := r.PathValue("name")
 		versionStr := r.PathValue("version")
@@ -111,6 +219,12 @@ func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 		version, err := strconv.ParseUint(versionStr, 10, 64)
 		if err != nil {
 			http.Error(w, "invalid version number", http.StatusBadRequest)
+			return
+		}
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeRead, namespace, name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -141,8 +255,20 @@ func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 
 func DeleteResource(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
 		name := r.PathValue("name")
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeDelete, namespace, name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 
 		if err := store.DeleteResource(db, namespace, name); err != nil {
 			if err == gorm.ErrRecordNotFound {
@@ -159,6 +285,12 @@ func DeleteResource(db *gorm.DB) http.HandlerFunc {
 
 func PutResource(db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := principalFromContext(r)
+		if !ok {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		namespace := r.PathValue("namespace")
 		name := r.PathValue("name")
 
@@ -168,6 +300,12 @@ func PutResource(db *gorm.DB) http.HandlerFunc {
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		allowed, err := authz.Check(db, principal, orm.VerbTypeWrite, namespace, name)
+		if err != nil || !allowed {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
