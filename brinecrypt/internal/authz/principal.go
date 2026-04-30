@@ -9,8 +9,9 @@ import (
 type PrincipalKind string
 
 const (
-	PrincipalUser PrincipalKind = "user"
-	PrincipalSA   PrincipalKind = "sa"
+	PrincipalUser  PrincipalKind = "user"
+	PrincipalSA    PrincipalKind = "sa"
+	PrincipalToken PrincipalKind = "token"
 )
 
 type Principal struct {
@@ -18,6 +19,7 @@ type Principal struct {
 	Name        string
 	SANamespace string
 	SAName      string
+	TokenID     uint
 }
 
 func NewPrincipalFromUser(user *orm.User) *Principal {
@@ -26,6 +28,10 @@ func NewPrincipalFromUser(user *orm.User) *Principal {
 
 func NewPrincipalFromSA(namespace string, name string) *Principal {
 	return &Principal{Kind: PrincipalSA, SANamespace: namespace, SAName: name}
+}
+
+func NewPrincipalFromToken(token *orm.CapabilityToken) *Principal {
+	return &Principal{Kind: PrincipalToken, TokenID: token.Id}
 }
 
 func ParsePrincipal(s string) (*Principal, error) {

@@ -10,9 +10,15 @@ func CreatePAT(db *gorm.DB, pat *orm.PAT) error {
 	return db.Create(pat).Error
 }
 
-func GetPATByTokenHash(db *gorm.DB, tokenHash string) (*orm.PAT, error) {
+func GetPATByHash(db *gorm.DB, hash string) (*orm.PAT, error) {
 	var pat orm.PAT
-	err := db.Where("token_hash = ?", tokenHash).First(&pat).Error
+	err := db.Where("pat_hash = ?", hash).First(&pat).Error
+	return &pat, err
+}
+
+func GetPATByID(db *gorm.DB, id uint) (*orm.PAT, error) {
+	var pat orm.PAT
+	err := db.First(&pat, id).Error
 	return &pat, err
 }
 

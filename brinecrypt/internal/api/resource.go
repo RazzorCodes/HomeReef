@@ -54,11 +54,16 @@ func SummarizeResourceValue(r orm.ResourceValue) ResourceValueSummary {
 }
 
 func principalFromContext(r *http.Request) (*authz.Principal, bool) {
-	user, ok := r.Context().Value(auth.UserContextKey).(*orm.User)
-	if !ok {
-		return nil, false
+	if user, ok := r.Context().Value(auth.UserContextKey).(*orm.User); ok {
+		return authz.NewPrincipalFromUser(user), true
 	}
-	return authz.NewPrincipalFromUser(user), true
+	if token, ok := r.Context().Value(auth.TokenContextKey).(*orm.CapabilityToken); ok {
+		return authz.NewPrincipalFromToken(token), true
+	}
+	if sa, ok := r.Context().Value(auth.SAContextKey).(*orm.SA); ok {
+		return authz.NewPrincipalFromSA(sa.Namespace, sa.Name), true
+	}
+	return nil, false
 }
 
 func GetResourceValue(db *gorm.DB) http.HandlerFunc {

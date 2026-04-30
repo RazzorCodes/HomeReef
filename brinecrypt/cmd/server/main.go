@@ -31,9 +31,10 @@ func main() {
 	mux.HandleFunc("POST /auth/refresh", api.Refresh(db))
 	mux.HandleFunc("DELETE /auth/logout", api.Logout(db))
 
-	// mux.HandleFunc("POST /api/v1/tokens/pat", api.IssuePAT(db))
-	// mux.HandleFunc("POST /api/v1/tokens/capability", api.IssueCapabilityToken(db))
-	// mux.HandleFunc("DELETE /api/v1/tokens/{id}", api.RevokeToken(db))
+	mux.HandleFunc("POST /api/v1/tokens/pat", api.IssuePAT(db))
+	mux.HandleFunc("DELETE /api/v1/tokens/pat/{id}", api.RevokePAT(db))
+	mux.HandleFunc("POST /api/v1/tokens/capability", api.IssueCapabilityToken(db))
+	mux.HandleFunc("DELETE /api/v1/tokens/capability/{id}", api.RevokeCapabilityToken(db))
 
 	// admin
 	mux.HandleFunc("POST /admin/users", api.CreateUser(db))

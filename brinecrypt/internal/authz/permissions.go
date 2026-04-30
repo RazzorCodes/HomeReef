@@ -45,6 +45,8 @@ func permissionsForPrincipal(db *gorm.DB, principal *Principal) ([]orm.Permissio
 			return nil, err
 		}
 		return store.GetPermissionsForSA(db, sa.Id)
+	case PrincipalToken:
+		return store.GetPermissionsForCapabilityToken(db, principal.TokenID)
 	default:
 		return nil, fmt.Errorf("unknown principal kind %q", principal.Kind)
 	}

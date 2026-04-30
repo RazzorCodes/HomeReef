@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"brinecrypt/internal/k8s"
+	"brinecrypt/internal/logger"
 	"brinecrypt/internal/orm"
 	"brinecrypt/internal/store"
 
@@ -14,13 +16,19 @@ import (
 )
 
 const (
-	SessionPrefix = "sess_"
-	RefreshPrefix = "refr_"
+	SessionPrefix    = "sess_"
+	RefreshPrefix    = "refr_"
+	PATPrefix        = "pat_"
+	CapabilityPrefix = "cap_"
 )
 
 type contextKey string
 
-const UserContextKey contextKey = "user"
+const (
+	UserContextKey  contextKey = "user"
+	TokenContextKey contextKey = "token"
+	SAContextKey    contextKey = "sa"
+)
 
 func AuthMiddleware(db *gorm.DB, next http.Handler) http.Handler {
 	public := map[string]bool{
@@ -33,35 +41,59 @@ func AuthMiddleware(db *gorm.DB, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+
 		raw := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if raw == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		var (
-			user *orm.User
-			err  error
-		)
-
 		switch {
 		case strings.HasPrefix(raw, SessionPrefix):
-			user, err = resolveSession(db, raw)
-		// TODO: case strings.HasPrefix(raw, "pat_"): user, err = resolvePAT(db, raw)
-		// TODO: SA JWT: user, err = resolveSAJWT(db, raw)
+			user, err := resolveSession(db, raw)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+
+		case strings.HasPrefix(raw, PATPrefix):
+			user, err := resolvePAT(db, raw)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+
+		case strings.HasPrefix(raw, CapabilityPrefix):
+			ct, err := resolveCapabilityToken(db, raw)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), TokenContextKey, ct)
+			next.ServeHTTP(w, r.WithContext(ctx))
+
+		case looksLikeJWT(raw):
+			sa, err := resolveSAJWT(r.Context(), db, raw)
+			if err != nil {
+				logger.Warn("SA JWT validation failed: " + err.Error())
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), SAContextKey, sa)
+			next.ServeHTTP(w, r.WithContext(ctx))
+
 		default:
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
 		}
-
-		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), UserContextKey, user)
-		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func looksLikeJWT(s string) bool {
+	return strings.HasPrefix(s, "eyJ") && strings.Count(s, ".") == 2
 }
 
 func resolveSession(db *gorm.DB, token string) (*orm.User, error) {
@@ -75,3 +107,25 @@ func resolveSession(db *gorm.DB, token string) (*orm.User, error) {
 	return store.GetUserById(db, session.UserId)
 }
 
+func resolvePAT(db *gorm.DB, token string) (*orm.User, error) {
+	pat, err := store.GetPATByHash(db, HashToken(token))
+	if err != nil {
+		return nil, err
+	}
+	if pat.Expiry != nil && time.Now().After(*pat.Expiry) {
+		return nil, fmt.Errorf("PAT expired")
+	}
+	return store.GetUserById(db, pat.UserId)
+}
+
+func resolveCapabilityToken(db *gorm.DB, token string) (*orm.CapabilityToken, error) {
+	return store.GetCapabilityTokenByHash(db, HashToken(token))
+}
+
+func resolveSAJWT(ctx context.Context, db *gorm.DB, token string) (*orm.SA, error) {
+	namespace, name, err := k8s.ValidateSAToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	return store.GetOrCreateSA(db, namespace, name)
+}

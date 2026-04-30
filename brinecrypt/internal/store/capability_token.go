@@ -10,9 +10,15 @@ func CreateCapabilityToken(db *gorm.DB, ct *orm.CapabilityToken) error {
 	return db.Create(ct).Error
 }
 
-func GetCapabilityTokenByTokenHash(db *gorm.DB, tokenHash string) (*orm.CapabilityToken, error) {
+func GetCapabilityTokenByHash(db *gorm.DB, hash string) (*orm.CapabilityToken, error) {
 	var ct orm.CapabilityToken
-	err := db.Where("token_hash = ?", tokenHash).First(&ct).Error
+	err := db.Preload("Permissions").Where("token_hash = ?", hash).First(&ct).Error
+	return &ct, err
+}
+
+func GetCapabilityTokenByID(db *gorm.DB, id uint) (*orm.CapabilityToken, error) {
+	var ct orm.CapabilityToken
+	err := db.First(&ct, id).Error
 	return &ct, err
 }
 

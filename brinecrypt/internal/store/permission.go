@@ -89,6 +89,16 @@ func matchesDeletePattern(existing, deletePattern string) bool {
 	return nsMatch && resMatch
 }
 
+func GetPermissionsForCapabilityToken(db *gorm.DB, tokenID uint) ([]orm.Permission, error) {
+	var permissions []orm.Permission
+	err := db.Model(&orm.CapabilityToken{Id: tokenID}).Association("Permissions").Find(&permissions)
+	return permissions, err
+}
+
+func AddPermissionToCapabilityToken(db *gorm.DB, tokenID uint, permissionID uint) error {
+	return db.Model(&orm.CapabilityToken{Id: tokenID}).Association("Permissions").Append(&orm.Permission{Id: permissionID})
+}
+
 func splitPattern(pattern string) [2]string {
 	for i, c := range pattern {
 		if c == '/' {
