@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: homereef-transflux
-data:
-  PYTHONPATH: /app/src
