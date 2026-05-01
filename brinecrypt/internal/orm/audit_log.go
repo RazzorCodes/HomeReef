@@ -6,7 +6,7 @@ type AuditLog struct {
 	Id         uint      `gorm:"primaryKey" json:"id"`
 	CreatedAt  time.Time `json:"created_at"`
 	Actor      string    `json:"actor"`      // "user:alice", "sa:ns/name", "token:42"
-	Action     string    `json:"action"`     // see Action* constants
+	Action     string    `json:"action"`
 	Resource   string    `json:"resource"`   // "namespace/name" or descriptive target
 	Status     string    `json:"status"`     // "ok", "denied", "error"
 	RemoteAddr string    `json:"remote_addr"`

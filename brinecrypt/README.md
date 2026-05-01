@@ -12,6 +12,7 @@ Brinecrypt is a secure resource management and encryption service designed to pr
   - Personal Access Tokens (PATs) for programmatic access.
   - Capability Tokens for restricted, delegated access.
   - Kubernetes Service Account integration.
+- **Audit Log:** Every mutating operation and auth event is recorded with actor, action, resource, status, and remote address. Queryable via `GET /admin/audit`.
 - **Developer Friendly:** High-performance incremental builds with Docker and live-reloading via Air.
 
 ## Architecture
@@ -70,6 +71,7 @@ The API is fully documented using OpenAPI 3.0. You can find the specification in
 - **Issue PAT:** `POST /api/v1/tokens/pat`
 - **Store Resource:** `PUT /api/v1/{namespace}/{name}`
 - **Retrieve Resource:** `GET /api/v1/{namespace}/{name}`
+- **Query Audit Log:** `GET /admin/audit` (params: `actor`, `action`, `resource`, `status`, `since`, `until`, `limit`)
 
 ## Security Model
 

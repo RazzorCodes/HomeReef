@@ -28,6 +28,19 @@ func actorFromRequest(r *http.Request) string {
 	return "unknown"
 }
 
+func parseTimeParam(w http.ResponseWriter, r *http.Request, param string) (*time.Time, bool) {
+	s := r.URL.Query().Get(param)
+	if s == "" {
+		return nil, true
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		http.Error(w, "invalid "+param+": use RFC3339", http.StatusBadRequest)
+		return nil, false
+	}
+	return &t, true
+}
+
 func WriteAudit(db *gorm.DB, r *http.Request, actor, action, resource, status string) {
 	entry := &orm.AuditLog{
 		Actor:      actor,
@@ -55,25 +68,21 @@ func GetAuditLog(db *gorm.DB) http.HandlerFunc {
 			Status:   r.URL.Query().Get("status"),
 		}
 
-		if s := r.URL.Query().Get("since"); s != "" {
-			t, err := time.Parse(time.RFC3339, s)
-			if err != nil {
-				http.Error(w, "invalid since: use RFC3339", http.StatusBadRequest)
-				return
-			}
-			q.Since = &t
+		since, ok := parseTimeParam(w, r, "since")
+		if !ok {
+			return
 		}
-		if u := r.URL.Query().Get("until"); u != "" {
-			t, err := time.Parse(time.RFC3339, u)
-			if err != nil {
-				http.Error(w, "invalid until: use RFC3339", http.StatusBadRequest)
-				return
-			}
-			q.Until = &t
+		q.Since = since
+
+		until, ok := parseTimeParam(w, r, "until")
+		if !ok {
+			return
 		}
+		q.Until = until
+
 		if l := r.URL.Query().Get("limit"); l != "" {
 			n, err := strconv.Atoi(l)
-			if err != nil || n <= 0 {
+			if err != nil || n <= 0 || n > 10000 {
 				http.Error(w, "invalid limit", http.StatusBadRequest)
 				return
 			}

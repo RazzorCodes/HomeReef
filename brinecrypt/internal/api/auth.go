@@ -63,7 +63,8 @@ func Refresh(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
-		WriteAudit(db, r, actorFromRequest(r), orm.ActionAuthRefresh, actorFromRequest(r), orm.AuditStatusOK)
+		actor := actorFromRequest(r)
+		WriteAudit(db, r, actor, orm.ActionAuthRefresh, actor, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(LoginResponseBody{
 			SessionToken: tokens.SessionToken,

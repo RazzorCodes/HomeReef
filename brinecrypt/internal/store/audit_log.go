@@ -26,7 +26,7 @@ func QueryAuditLogs(db *gorm.DB, q AuditQuery) ([]orm.AuditLog, error) {
 	if limit == 0 {
 		limit = 100
 	}
-	tx := db
+	tx := db.Model(&orm.AuditLog{})
 	if q.Actor != "" {
 		tx = tx.Where("actor = ?", q.Actor)
 	}
