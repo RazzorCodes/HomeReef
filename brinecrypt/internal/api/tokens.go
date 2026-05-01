@@ -48,6 +48,7 @@ func IssuePAT(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, "user:"+user.Name, orm.ActionTokenPATIssue, "user:"+user.Name, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"token": token})
 	}
@@ -83,6 +84,7 @@ func RevokePAT(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, "user:"+user.Name, orm.ActionTokenPATRevoke, "user:"+user.Name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -150,6 +152,7 @@ func IssueCapabilityToken(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		WriteAudit(db, r, "user:"+user.Name, orm.ActionTokenCapIssue, "user:"+user.Name, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"token": token})
 	}
@@ -185,6 +188,7 @@ func RevokeCapabilityToken(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, "user:"+user.Name, orm.ActionTokenCapRevoke, "user:"+user.Name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

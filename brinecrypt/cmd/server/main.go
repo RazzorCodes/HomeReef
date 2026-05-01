@@ -49,6 +49,7 @@ func main() {
 	mux.HandleFunc("DELETE /admin/users/{name}", api.DeleteUserByName(db))
 	mux.HandleFunc("POST /admin/permissions", api.GrantPermissions(db))
 	mux.HandleFunc("DELETE /admin/permissions", api.RevokePermissions(db))
+	mux.HandleFunc("GET /admin/audit", api.GetAuditLog(db))
 
 	// resource
 

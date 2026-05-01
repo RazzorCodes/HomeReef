@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"brinecrypt/internal/auth"
+	"brinecrypt/internal/orm"
 
 	"gorm.io/gorm"
 )
@@ -30,10 +31,12 @@ func Login(db *gorm.DB) http.HandlerFunc {
 
 		tokens, err := auth.Login(db, request.User, request.Pass)
 		if err != nil {
+			WriteAudit(db, r, "user:"+request.User, orm.ActionAuthLogin, "user:"+request.User, orm.AuditStatusDenied)
 			http.Error(w, "incorrect user or password", http.StatusUnauthorized)
 			return
 		}
 
+		WriteAudit(db, r, "user:"+request.User, orm.ActionAuthLogin, "user:"+request.User, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(LoginResponseBody{
 			SessionToken: tokens.SessionToken,
@@ -60,6 +63,7 @@ func Refresh(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionAuthRefresh, actorFromRequest(r), orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(LoginResponseBody{
 			SessionToken: tokens.SessionToken,
@@ -76,11 +80,13 @@ func Logout(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		actor := actorFromRequest(r)
 		if err := auth.Logout(db, token); err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 
+		WriteAudit(db, r, actor, orm.ActionAuthLogout, actor, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

@@ -129,6 +129,7 @@ func GetResourceValue(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceRead, resource.Namespace.Name+"/"+resource.Name, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rv)
 	}
@@ -169,6 +170,7 @@ func GetResource(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceRead, namespace+"/"+name, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resource)
 	}
@@ -212,6 +214,7 @@ func ListResourceVersions(db *gorm.DB) http.HandlerFunc {
 			summary = append(summary, SummarizeResourceValue(v))
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceList, namespace+"/"+name+"/versions", orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(summary)
 	}
@@ -244,6 +247,7 @@ func ListResourcesInNamespace(db *gorm.DB) http.HandlerFunc {
 			summary = append(summary, SummarizeResource(resource))
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceList, namespace+"/*", orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(summary)
 	}
@@ -299,6 +303,7 @@ func GetResourceByVersion(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceRead, namespace+"/"+name, orm.AuditStatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(rv)
 	}
@@ -330,6 +335,7 @@ func DeleteResource(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceDelete, namespace+"/"+name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -443,6 +449,7 @@ func PutResource(db *gorm.DB) http.HandlerFunc {
 			return
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionResourceWrite, namespace+"/"+name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

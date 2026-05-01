@@ -19,5 +19,7 @@ func Migrate(db *gorm.DB) error {
 		&orm.EncryptionKey{},
 		&orm.Resource{},
 		&orm.ResourceValue{},
+		// ---
+		&orm.AuditLog{},
 	)
 }

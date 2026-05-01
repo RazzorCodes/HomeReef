@@ -81,6 +81,7 @@ func CreateUser(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionUserCreate, metaNS+"/"+body.Name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -140,11 +141,13 @@ func DeleteUserByName(db *gorm.DB) http.HandlerFunc {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		if err := store.DeleteUser(db, r.PathValue("name")); err != nil {
+		name := r.PathValue("name")
+		if err := store.DeleteUser(db, name); err != nil {
 			logger.Error("delete user: " + err.Error())
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionUserDelete, metaNS+"/"+name, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -220,6 +223,7 @@ func GrantPermissions(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionPermGrant, body.Principal, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -289,6 +293,7 @@ func RevokePermissions(db *gorm.DB) http.HandlerFunc {
 			}
 		}
 
+		WriteAudit(db, r, actorFromRequest(r), orm.ActionPermRevoke, body.Principal, orm.AuditStatusOK)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
