@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kube-idle
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - priorityclass.yaml
+  - pvc.yaml
+  - ingress.yaml
+
+# Override the image tag here to pin a specific release, e.g. newTag: v1.2.3
+images:
+  - name: zot.lan/homereef-transflux
+    newTag: latest
+
+patches:
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          kubernetes.io/hostname: homelab-worker-01
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: idle-priority
+    target:
+      kind: Deployment
+      name: homereef-transflux

@@ -1,0 +1,12 @@
+# Cluster-scoped — not affected by the namespace: field in kustomization.yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: idle-priority
+value: -1000
+preemptionPolicy: Never
+globalDefault: false
+description: >
+  Used by kube-idle workloads. Lowest possible priority; pods using this class
+  will only run when no other workload needs the resources and will never
+  preempt other pods.
